@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "discordbridge",
+	"version": "${version}",
+	"name": "Discord Bridge",
+	"description": "Relays Minecraft chat and events to a Discord channel and Discord messages into Minecraft.",
+	"authors": [
+		"yourname"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/discordbridge/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.yourname.discordbridge.DiscordBridgeMod"
+		],
+		"client": [
+			"io.github.yourname.discordbridge.client.DiscordBridgeClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
