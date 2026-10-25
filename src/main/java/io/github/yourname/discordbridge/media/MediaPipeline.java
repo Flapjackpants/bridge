@@ -178,8 +178,7 @@ public final class MediaPipeline {
 		if (name.length() > MAX_FILE_NAME) {
 			name = name.substring(0, MAX_FILE_NAME);
 		}
-		return new MediaRef(kind, url, proxy, w, h, c.sizeBytes(), type, name,
-				kind == MediaRef.Kind.VIDEO ? null : c.linkUrl());
+		return new MediaRef(kind, url, proxy, w, h, c.sizeBytes(), type, name, c.linkUrl());
 	}
 
 	private static String normalizeType(@Nullable String contentType, @Nullable String fileName, @Nullable String url) {

@@ -21,8 +21,18 @@ public final class MediaLinks {
 		return s.length() > MAX_LABEL ? s.substring(0, MAX_LABEL) : s;
 	}
 
-	/** First of url, proxyUrl that policy allows, as a URI; null if none. */
+	/**
+	 * VIDEO: linkUrl first when it is an absolute http/https URI with a host and no user-info (host allowlist NOT applied:
+	 * it is the link the sender posted, already clickable in chat). Then, for every kind: first of url, proxyUrl that
+	 * policy allows. Null if none. Never throws.
+	 */
 	public static @Nullable URI openUri(MediaRef ref, MediaPipeline.Policy policy) {
+		if (ref.kind() == MediaRef.Kind.VIDEO) {
+			URI link = webUri(ref.linkUrl());
+			if (link != null) {
+				return link;
+			}
+		}
 		for (String s : new String[] {ref.url(), ref.proxyUrl()}) {
 			if (s != null && policy.allows(s)) {
 				try {
@@ -33,6 +43,21 @@ public final class MediaLinks {
 			}
 		}
 		return null;
+	}
+
+	/** Absolute http/https URI with non-null host and null user-info; else null. Never throws. */
+	private static @Nullable URI webUri(@Nullable String s) {
+		if (s == null) {
+			return null;
+		}
+		try {
+			URI u = new URI(s);
+			String scheme = u.getScheme();
+			boolean web = "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
+			return web && u.getHost() != null && u.getUserInfo() == null ? u : null;
+		} catch (URISyntaxException e) {
+			return null;
+		}
 	}
 
 	private static String host(@Nullable String s) {
