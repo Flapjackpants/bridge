@@ -49,6 +49,8 @@ public final class DiscordBridge {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final String WEBHOOK_NAME = "DiscordBridge";
 	private static final long EMBED_WAIT_MS = 1500;
+	// Discord can take seconds to unfurl a large media link (a 4.6 MB GIF took ~2.6 s); update events end the wait early
+	private static final long MEDIA_EMBED_WAIT_MS = 8000;
 
 	public enum State { DISABLED, CONNECTING, CONNECTED, FAILED }
 
@@ -329,13 +331,16 @@ public final class DiscordBridge {
 					&& MediaPipeline.mayGainEmbeds(msg.getContentRaw(), msg.getEmbeds().size(),
 							msg.getAttachments().size())) {
 				long id = msg.getIdLong();
+				long wait = MediaPipeline.linksAllowedMedia(msg.getContentRaw(), MediaPipeline.Policy.from(cfg))
+						? MEDIA_EMBED_WAIT_MS
+						: EMBED_WAIT_MS;
 				awaitingEmbeds.put(id, msg);
 				ses.schedule(() -> {
 					Message m = awaitingEmbeds.remove(id);
 					if (m != null) {
 						dispatch(m);
 					}
-				}, EMBED_WAIT_MS, TimeUnit.MILLISECONDS);
+				}, wait, TimeUnit.MILLISECONDS);
 				return;
 			}
 			dispatch(msg);

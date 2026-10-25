@@ -41,7 +41,8 @@ public final class MediaFetchPlan {
 					add(cand, proxyPng, false);
 				}
 				case GIFV -> {
-					if (ref.contentType().equals("image/gif")) {
+					// image/webp here is the embed thumbnail (e.g. Klipy), which is usually animated
+					if (ref.contentType().equals("image/gif") || ref.contentType().equals("image/webp")) {
 						add(cand, url, true);
 						add(cand, proxyPng, false);
 					} else {

@@ -53,6 +53,10 @@ class MediaFetchPlanTest {
 		List<Source> s = MediaFetchPlan.plan(ref(MediaRef.Kind.GIFV, gif, PROXY, -1, "image/gif"), POLICY);
 		assertEquals(List.of(gif, PROXY_PNG), urls(s));
 		assertTrue(s.get(0).animated());
+		String webp = "https://static1.klipy.com/a.webp";
+		List<Source> w = MediaFetchPlan.plan(ref(MediaRef.Kind.GIFV, webp, PROXY, -1, "image/webp"), POLICY);
+		assertEquals(List.of(webp, PROXY_PNG), urls(w));
+		assertTrue(w.get(0).animated());
 		List<Source> t = MediaFetchPlan.plan(ref(MediaRef.Kind.GIFV, CDN, PROXY, -1, "image/png"), POLICY);
 		assertEquals(List.of(PROXY_PNG, CDN), urls(t));
 		assertFalse(t.get(1).animated());

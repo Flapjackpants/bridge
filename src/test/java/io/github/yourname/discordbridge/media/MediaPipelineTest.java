@@ -246,6 +246,18 @@ class MediaPipelineTest {
 	}
 
 	@Test
+	void linksAllowedMedia() {
+		assertTrue(MediaPipeline.linksAllowedMedia(
+				"https://cdn.discordapp.com/attachments/1/2/attachment.gif", POLICY));
+		assertTrue(MediaPipeline.linksAllowedMedia("lol https://example.com/a and https://media.tenor.com/x.gif", POLICY));
+		assertFalse(MediaPipeline.linksAllowedMedia("see https://tenor.com/view/x", POLICY));
+		assertFalse(MediaPipeline.linksAllowedMedia("http://cdn.discordapp.com/attachments/1/2/a.gif", POLICY));
+		assertFalse(MediaPipeline.linksAllowedMedia("<https://cdn.discordapp.com/attachments/1/2/a.gif>", POLICY));
+		assertFalse(MediaPipeline.linksAllowedMedia("no link", POLICY));
+		assertFalse(MediaPipeline.linksAllowedMedia(null, POLICY));
+	}
+
+	@Test
 	void gifRenditionGiphy() {
 		assertEquals("https://media.giphy.com/media/abc/giphy.gif",
 				MediaPipeline.gifRendition("https://media.giphy.com/media/abc/giphy.mp4?cid=1"));
@@ -256,12 +268,10 @@ class MediaPipelineTest {
 	}
 
 	@Test
-	void gifRenditionImgurKlipy() {
+	void gifRenditionImgur() {
 		assertEquals("https://i.giphy.com/abc.gif", MediaPipeline.gifRendition("https://i.giphy.com/abc.webp?x=1"));
 		assertEquals("https://i.imgur.com/abc.gif", MediaPipeline.gifRendition("https://i.imgur.com/abc.gifv?x=1"));
 		assertEquals("https://i.imgur.com/abc.gif", MediaPipeline.gifRendition("https://i.imgur.com/abc.mp4"));
-		assertEquals("https://static1.klipy.com/ii/abc/x.gif",
-				MediaPipeline.gifRendition("https://static1.klipy.com/ii/abc/x.MP4?q=1"));
 	}
 
 	@Test
@@ -271,18 +281,19 @@ class MediaPipelineTest {
 		assertNull(MediaPipeline.gifRendition("::bad uri"));
 		assertNull(MediaPipeline.gifRendition("https://i.imgur.com/a/b.mp4"));
 		assertNull(MediaPipeline.gifRendition("https://static1.klipy.com/ii/abc/x.png"));
+		assertNull(MediaPipeline.gifRendition("https://static1.klipy.com/ii/abc/x.mp4"));
 		assertEquals("https://media.tenor.com/abcdefAAAAC/cat.gif",
 				MediaPipeline.gifRendition("https://media.tenor.com/abcdefAAAPo/cat.mp4"));
 	}
 
 	@Test
-	void gifvKlipyRendition() {
+	void gifvKlipyUsesWebpThumbnail() {
 		Candidate c = new Candidate(Source.EMBED_GIFV, "https://static1.klipy.com/ii/abc/x.mp4", null, 200, 100, -1,
-				null, null, "https://static1.klipy.com/ii/abc/x.webp",
-				"https://images-ext-1.discordapp.net/external/y/x.webp", 200, 100, "image/webp");
+				null, null, "https://static1.klipy.com/ii/abc/y.webp",
+				"https://images-ext-1.discordapp.net/external/y/y.webp", 200, 100, null);
 		MediaRef r = run(c).get(0);
-		assertEquals("https://static1.klipy.com/ii/abc/x.gif", r.url());
-		assertEquals("image/gif", r.contentType());
+		assertEquals("https://static1.klipy.com/ii/abc/y.webp", r.url());
+		assertEquals("image/webp", r.contentType());
 	}
 
 	@Test
