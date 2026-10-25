@@ -72,4 +72,40 @@ class MediaLayoutTest {
 		MediaGeometry.Sheet s = MediaGeometry.Sheet.of(2, 1, 1, 4);
 		assertThrows(IllegalArgumentException.class, () -> MediaLayout.packSheet(f, s));
 	}
+
+	@Test
+	void entryHeightMatchesVanilla() {
+		assertEquals(9, MediaLayout.entryHeight(0.0));
+		assertEquals(13, MediaLayout.entryHeight(0.5));
+		assertEquals(18, MediaLayout.entryHeight(1.0));
+	}
+
+	@Test
+	void rowTopMatchesVanilla() {
+		assertEquals(99, MediaLayout.rowTop(100, 0.0));
+		assertEquals(97, MediaLayout.rowTop(100, 0.5));
+		assertEquals(94, MediaLayout.rowTop(100, 1.0));
+	}
+
+	@Test
+	void sliceScalesSource() {
+		assertEquals(new MediaLayout.Slice(9, 0, 18), MediaLayout.slice(0, 9, 90, 180));
+		assertEquals(new MediaLayout.Slice(9, 162, 18), MediaLayout.slice(9, 9, 90, 180));
+	}
+
+	@Test
+	void slicePartialLastRow() {
+		assertEquals(new MediaLayout.Slice(2, 18, 2), MediaLayout.slice(2, 9, 20, 20));
+	}
+
+	@Test
+	void sliceBeyondBox() {
+		assertEquals(new MediaLayout.Slice(0, 0, 0), MediaLayout.slice(10, 9, 90, 180));
+	}
+
+	@Test
+	void sliceDegenerate() {
+		assertEquals(new MediaLayout.Slice(0, 0, 0), MediaLayout.slice(0, 9, 0, 10));
+		assertEquals(new MediaLayout.Slice(0, 0, 0), MediaLayout.slice(0, 9, 10, 0));
+	}
 }

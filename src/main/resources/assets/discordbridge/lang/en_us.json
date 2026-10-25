@@ -7,5 +7,6 @@
 	"discordbridge.config.maxHeight": "Max height: %s px",
 	"discordbridge.config.memoryBudget": "Memory budget: %s MiB",
 	"discordbridge.config.clickToReveal": "Click to reveal",
-	"discordbridge.config.showInChatOverlay": "Show in chat overlay"
+	"discordbridge.config.showInChatOverlay": "Show in chat overlay",
+	"discordbridge.media.failed": "[media unavailable]"
 }

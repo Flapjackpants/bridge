@@ -21,6 +21,12 @@
 			"io.github.yourname.discordbridge.client.ModMenuIntegration"
 		]
 	},
+	"mixins": [
+		{
+			"config": "discordbridge.client.mixins.json",
+			"environment": "client"
+		}
+	],
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.3",

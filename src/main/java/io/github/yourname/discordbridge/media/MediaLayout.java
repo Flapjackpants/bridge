@@ -10,6 +10,30 @@ public final class MediaLayout {
 		return Math.ceilDiv(Math.max(1, boxHeight), Math.max(1, rowHeight));
 	}
 
+	/** Chat row height in GUI px for the chatLineSpacing option value. */
+	public static int entryHeight(double lineSpacing) {
+		return (int) (9 * (lineSpacing + 1));
+	}
+
+	/** Top y of the chat row whose text is drawn at textTop. */
+	public static int rowTop(int textTop, double lineSpacing) {
+		return textTop + (int) Math.round(8.0 * (lineSpacing + 1) - 4.0 * lineSpacing) - entryHeight(lineSpacing);
+	}
+
+	/** destHeight <= 0 means nothing to draw for this row. */
+	public record Slice(int destHeight, int srcTop, int srcHeight) {}
+
+	/** Slice of a boxHeight-tall image shown on row `row` (rowHeight px each), sampled from a frameHeight-tall frame. Never throws. */
+	public static Slice slice(int row, int rowHeight, int boxHeight, int frameHeight) {
+		int destHeight = Math.min(rowHeight, boxHeight - row * rowHeight);
+		if (destHeight <= 0 || boxHeight <= 0 || frameHeight <= 0) {
+			return new Slice(0, 0, 0);
+		}
+		int srcTop = (int) Math.round((double) row * rowHeight * frameHeight / boxHeight);
+		int srcBottom = (int) Math.round((double) Math.min((row + 1) * rowHeight, boxHeight) * frameHeight / boxHeight);
+		return new Slice(destHeight, srcTop, Math.max(1, srcBottom - srcTop));
+	}
+
 	/** Looping frame index at elapsedMs. delays <= 0 count as 100 ms. length <= 1 → 0. elapsedMs < 0 → 0. Never throws. */
 	public static int frameAt(int[] delaysMs, long elapsedMs) {
 		if (delaysMs == null || delaysMs.length <= 1) {
