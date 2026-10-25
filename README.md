@@ -43,6 +43,18 @@ File: `config/discordbridge-server.json`. The token can instead come from the en
 | `relayServerStatus` | `true` | Relay server start/stop. |
 | `maxInboundLength` | `512` | Max characters of an inbound Discord message. |
 | `maxInboundLines` | `5` | Max lines of an inbound Discord message. |
+| `richMedia` | `true` | Send rich messages to modded clients that completed the handshake. |
+| `mediaAllowedHosts` | Discord CDN, Discord media proxy, Tenor | HTTPS hosts media URLs may use; `*.` prefix matches subdomains. File-only. |
+| `mediaMaxBytes` | `8388608` | Larger attachments are not sent as media. File-only. |
+| `mediaMaxDimension` | `8192` | Max pixels per side. File-only. |
+| `mediaMaxItems` | `4` | Media items per message (hard cap 16). File-only. |
+| `mediaPreviewSize` | `256` | Longest side in pixels of proxy-resized previews. File-only. |
+
+## Modded clients
+
+Clients with the mod get rich messages (author, avatar, media list) after a `discordbridge:hello` v1 handshake.
+Vanilla clients, and everyone when `richMedia` is `false`, see the same chat line as before.
+Media URLs are limited to `mediaAllowedHosts`; the server never fetches media itself.
 
 ## Commands
 
@@ -50,7 +62,7 @@ Require operator level (same as `/whitelist`).
 
 - `/discordbridge status` — state, bot, channel, webhook, dropped messages, last error, config problems.
 - `/discordbridge reload` — reload the config from disk and reconnect.
-- `/discordbridge set <key> <value>` — change a setting (every key above except `token`). `channelId` and `useWebhook` reconnect; the rest apply immediately.
+- `/discordbridge set <key> <value>` — change a setting (`richMedia` and every other settable key above; the `media*` keys are file-only, `token` is console only). `channelId` and `useWebhook` reconnect; the rest apply immediately.
 - `/discordbridge token <token>` — console only; players are refused.
 
 ## Security

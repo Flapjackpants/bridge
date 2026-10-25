@@ -18,10 +18,12 @@ public final class BridgeConfig {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Pattern HEX = Pattern.compile("#?[0-9a-fA-F]{6}");
+	public static final List<String> DEFAULT_MEDIA_HOSTS = List.of(
+			"cdn.discordapp.com", "media.discordapp.net", "*.discordapp.net", "media.tenor.com");
 	private static final List<String> SETTABLE_KEYS = List.of(
 			"discordPrefix", "prefixColor", "nameColor", "messageColor",
 			"relayJoinLeave", "relayDeaths", "relayServerStatus", "useWebhook",
-			"enableInSingleplayer", "maxInboundLength", "maxInboundLines",
+			"enableInSingleplayer", "maxInboundLength", "maxInboundLines", "richMedia",
 			"avatarUrlTemplate", "channelId");
 
 	public String token = "";                 // overridden by env DISCORDBRIDGE_TOKEN when non-blank
@@ -38,6 +40,12 @@ public final class BridgeConfig {
 	public boolean relayServerStatus = true;
 	public int maxInboundLength = 512;        // chars, after sanitizing
 	public int maxInboundLines = 5;
+	public boolean richMedia = true;           // send discordbridge:message to clients that completed the hello handshake
+	public List<String> mediaAllowedHosts = new ArrayList<>(DEFAULT_MEDIA_HOSTS);
+	public int mediaMaxBytes = 8 * 1024 * 1024; // bytes; larger attachments are not sent as media
+	public int mediaMaxDimension = 8192;       // px per side
+	public int mediaMaxItems = 4;              // per message, hard cap 16
+	public int mediaPreviewSize = 256;         // px, longest side of proxy resize
 
 	public static BridgeConfig load(Path file) {
 		if (!Files.exists(file)) {
@@ -141,7 +149,8 @@ public final class BridgeConfig {
 					default -> messageColor = norm;
 				}
 			}
-			case "relayJoinLeave", "relayDeaths", "relayServerStatus", "useWebhook", "enableInSingleplayer" -> {
+			case "relayJoinLeave", "relayDeaths", "relayServerStatus", "useWebhook", "enableInSingleplayer",
+					"richMedia" -> {
 				Boolean b = parseBool(value);
 				if (b == null) {
 					return false;
@@ -151,7 +160,8 @@ public final class BridgeConfig {
 					case "relayDeaths" -> relayDeaths = b;
 					case "relayServerStatus" -> relayServerStatus = b;
 					case "useWebhook" -> useWebhook = b;
-					default -> enableInSingleplayer = b;
+					case "enableInSingleplayer" -> enableInSingleplayer = b;
+					default -> richMedia = b;
 				}
 			}
 			case "maxInboundLength", "maxInboundLines" -> {

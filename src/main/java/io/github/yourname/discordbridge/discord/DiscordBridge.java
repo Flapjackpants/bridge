@@ -1,6 +1,9 @@
 package io.github.yourname.discordbridge.discord;
 
 import io.github.yourname.discordbridge.config.BridgeConfig;
+import io.github.yourname.discordbridge.media.MediaPipeline;
+import io.github.yourname.discordbridge.net.BridgeNetworking;
+import io.github.yourname.discordbridge.net.RichMessage;
 import io.github.yourname.discordbridge.text.AttachmentRef;
 import io.github.yourname.discordbridge.text.ComponentRenderer;
 import io.github.yourname.discordbridge.text.InboundFormatter;
@@ -9,23 +12,32 @@ import io.github.yourname.discordbridge.text.Segment;
 import io.github.yourname.discordbridge.text.TextSanitizer;
 import java.time.Duration;
 import java.util.EnumSet;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.EmbedType;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.Webhook;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.events.message.MessageUpdateEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.events.session.SessionDisconnectEvent;
 import net.dv8tion.jda.api.events.session.SessionResumeEvent;
 import net.dv8tion.jda.api.exceptions.InvalidTokenException;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.MarkdownSanitizer;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jspecify.annotations.Nullable;
@@ -35,6 +47,7 @@ import org.slf4j.LoggerFactory;
 public final class DiscordBridge {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final String WEBHOOK_NAME = "DiscordBridge";
+	private static final long EMBED_WAIT_MS = 1500;
 
 	public enum State { DISABLED, CONNECTING, CONNECTED, FAILED }
 
@@ -44,6 +57,7 @@ public final class DiscordBridge {
 	private final MinecraftServer server;
 	private final BridgeConfig cfg;
 	private final OutboundBatcher batcher = new OutboundBatcher(200);
+	private final Map<Long, Message> awaitingEmbeds = new ConcurrentHashMap<>();
 
 	private volatile State state = State.DISABLED;
 	private volatile @Nullable String botTag;
@@ -85,6 +99,7 @@ public final class DiscordBridge {
 		if (state == State.CONNECTED) {
 			batcher.flushNow(this::deliver);
 		}
+		awaitingEmbeds.clear();
 		ScheduledExecutorService s = scheduler;
 		scheduler = null;
 		if (s != null) {
@@ -187,8 +202,69 @@ public final class DiscordBridge {
 				.map(a -> new AttachmentRef(a.getFileName(), a.getUrl(), a.isImage()))
 				.toList();
 		List<String> stickers = message.getStickers().stream().map(s -> s.getName()).toList();
+		ImageProxy avatar = message.getMember() != null
+				? message.getMember().getEffectiveAvatar()
+				: author.getEffectiveAvatar();
+		MediaPipeline.Policy policy = MediaPipeline.Policy.from(cfg);
+		String avatarUrl = avatar.getUrl(64);
 		return new InboundMessage(displayName, author.getName(), message.getContentDisplay(), replyTo,
-				attachments, stickers, message.getJumpUrl());
+				attachments, stickers, message.getJumpUrl(),
+				policy.allows(avatarUrl) ? avatarUrl : null,
+				MediaPipeline.process(mediaCandidates(message), policy));
+	}
+
+	private static List<MediaPipeline.Candidate> mediaCandidates(Message m) {
+		List<MediaPipeline.Candidate> out = new ArrayList<>();
+		for (Message.Attachment a : m.getAttachments()) {
+			out.add(new MediaPipeline.Candidate(MediaPipeline.Source.ATTACHMENT, a.getUrl(), a.getProxyUrl(),
+					a.getWidth(), a.getHeight(), a.getSize(), a.getContentType(), a.getFileName(),
+					null, null, 0, 0, null));
+		}
+		for (MessageEmbed e : m.getEmbeds()) {
+			MessageEmbed.Thumbnail thumb = e.getThumbnail();
+			switch (e.getType()) {
+				case IMAGE -> {
+					MessageEmbed.Thumbnail t = e.getThumbnail();
+					MessageEmbed.ImageInfo img = e.getImage();
+					if (t != null) {
+						out.add(new MediaPipeline.Candidate(MediaPipeline.Source.EMBED_IMAGE, t.getUrl(),
+								t.getProxyUrl(), t.getWidth(), t.getHeight(), -1, null, null,
+								null, null, 0, 0, null));
+					} else if (img != null) {
+						out.add(new MediaPipeline.Candidate(MediaPipeline.Source.EMBED_IMAGE, img.getUrl(),
+								img.getProxyUrl(), img.getWidth(), img.getHeight(), -1, null, null,
+								null, null, 0, 0, null));
+					}
+				}
+				case GIFV, VIDEO -> {
+					MessageEmbed.VideoInfo v = e.getVideoInfo();
+					if (v == null && thumb == null) {
+						continue;
+					}
+					out.add(new MediaPipeline.Candidate(
+							e.getType() == EmbedType.GIFV
+									? MediaPipeline.Source.EMBED_GIFV
+									: MediaPipeline.Source.EMBED_VIDEO,
+							v == null ? null : v.getUrl(), null,
+							v == null ? 0 : v.getWidth(), v == null ? 0 : v.getHeight(), -1, null, null,
+							thumb == null ? null : thumb.getUrl(), thumb == null ? null : thumb.getProxyUrl(),
+							thumb == null ? 0 : thumb.getWidth(), thumb == null ? 0 : thumb.getHeight(), null));
+				}
+				default -> { }
+			}
+		}
+		return out;
+	}
+
+	private void dispatch(Message message) {
+		InboundMessage in = toInbound(message);
+		List<Segment> segments = InboundFormatter.format(in, cfg);
+		if (segments.isEmpty()) {
+			return;
+		}
+		Component fallback = ComponentRenderer.render(segments, cfg);
+		RichMessage rich = cfg.richMedia && BridgeNetworking.anyRich() ? RichMessage.from(in, cfg) : null;
+		server.execute(() -> BridgeNetworking.broadcast(server, fallback, rich));
 	}
 
 	private final class Listener extends ListenerAdapter {
@@ -246,12 +322,33 @@ public final class DiscordBridge {
 			if (e.getAuthor().isBot() || e.getAuthor().isSystem() || e.isWebhookMessage()) {
 				return;
 			}
-			List<Segment> segments = InboundFormatter.format(toInbound(e.getMessage()), cfg);
-			if (segments.isEmpty()) {
+			Message msg = e.getMessage();
+			ScheduledExecutorService ses = scheduler;
+			if (ses != null && cfg.richMedia && BridgeNetworking.anyRich()
+					&& MediaPipeline.mayGainEmbeds(msg.getContentRaw(), msg.getEmbeds().size(),
+							msg.getAttachments().size())) {
+				long id = msg.getIdLong();
+				awaitingEmbeds.put(id, msg);
+				ses.schedule(() -> {
+					Message m = awaitingEmbeds.remove(id);
+					if (m != null) {
+						dispatch(m);
+					}
+				}, EMBED_WAIT_MS, TimeUnit.MILLISECONDS);
 				return;
 			}
-			server.execute(() -> server.getPlayerList()
-					.broadcastSystemMessage(ComponentRenderer.render(segments, cfg), false));
+			dispatch(msg);
+		}
+
+		@Override
+		public void onMessageUpdate(MessageUpdateEvent e) {
+			if (e.getChannel().getIdLong() != cfg.channelIdLong().orElse(0)) {
+				return;
+			}
+			Message m = e.getMessage();
+			if (!m.getEmbeds().isEmpty() && awaitingEmbeds.remove(m.getIdLong()) != null) {
+				dispatch(m);
+			}
 		}
 	}
 }

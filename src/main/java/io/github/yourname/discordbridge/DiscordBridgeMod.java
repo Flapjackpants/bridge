@@ -3,6 +3,8 @@ package io.github.yourname.discordbridge;
 import io.github.yourname.discordbridge.command.BridgeCommand;
 import io.github.yourname.discordbridge.config.BridgeConfig;
 import io.github.yourname.discordbridge.discord.DiscordBridge;
+import io.github.yourname.discordbridge.net.BridgeNetworking;
+import io.github.yourname.discordbridge.net.BridgeProtocol;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -79,6 +81,8 @@ public final class DiscordBridgeMod implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		config = BridgeConfig.load(configPath());
+		BridgeProtocol.registerPayloadTypes();
+		BridgeNetworking.registerServer();
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
 				BridgeCommand.register(dispatcher));
@@ -101,6 +105,7 @@ public final class DiscordBridgeMod implements ModInitializer {
 
 		ServerLifecycleEvents.SERVER_STOPPING.register(s -> {
 			synchronized (LOCK) {
+				BridgeNetworking.clear();
 				DiscordBridge b = bridge;
 				bridge = null;
 				if (b != null) {
@@ -133,6 +138,7 @@ public final class DiscordBridgeMod implements ModInitializer {
 		});
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, s) -> {
+			BridgeNetworking.forget(handler.getPlayer().getUUID());
 			DiscordBridge b = bridge;
 			if (b != null && config.relayJoinLeave) {
 				b.sendEvent("➖ " + handler.getPlayer().getName().getString() + " left");

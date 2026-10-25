@@ -105,4 +105,30 @@ class BridgeConfigTest {
 		c.channelId = " 42 ";
 		assertEquals(42L, c.channelIdLong().getAsLong());
 	}
+
+	@Test
+	void fillsMediaKeys() throws Exception {
+		Path f = dir.resolve("cfg.json");
+		Files.writeString(f, "{\"channelId\":\"123\"}");
+		BridgeConfig c = BridgeConfig.load(f);
+		assertTrue(c.richMedia);
+		assertEquals(BridgeConfig.DEFAULT_MEDIA_HOSTS, c.mediaAllowedHosts);
+		String text = Files.readString(f);
+		for (String k : new String[] {"richMedia", "mediaAllowedHosts", "mediaMaxBytes", "mediaMaxDimension",
+				"mediaMaxItems", "mediaPreviewSize"}) {
+			assertTrue(text.contains(k), k);
+		}
+	}
+
+	@Test
+	void richMediaSettable() {
+		BridgeConfig c = new BridgeConfig();
+		assertTrue(c.setByKey("richMedia", "false"));
+		assertFalse(c.richMedia);
+		assertTrue(c.setByKey("enableInSingleplayer", "true"));
+		assertTrue(c.enableInSingleplayer);
+		assertFalse(c.setByKey("mediaMaxBytes", "5"));
+		assertFalse(c.setByKey("richMedia", "maybe"));
+		assertTrue(BridgeConfig.settableKeys().contains("richMedia"));
+	}
 }
