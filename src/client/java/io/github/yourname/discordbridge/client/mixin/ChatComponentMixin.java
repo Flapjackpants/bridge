@@ -1,9 +1,12 @@
 package io.github.yourname.discordbridge.client.mixin;
 
 import io.github.yourname.discordbridge.client.media.ChatMedia;
+import io.github.yourname.discordbridge.client.media.ChatMediaHost;
 import java.util.List;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Final;
@@ -14,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatComponent.class)
-public abstract class ChatComponentMixin {
+public abstract class ChatComponentMixin implements ChatMediaHost {
 	@Shadow @Final private Minecraft minecraft;
 	@Shadow @Final private List<GuiMessage.Line> trimmedMessages;
 	@Shadow private int chatScrollbarPos;
@@ -30,6 +33,27 @@ public abstract class ChatComponentMixin {
 
 	@Shadow private double getScale() {
 		throw new AssertionError();
+	}
+
+	@Shadow private void refreshTrimmedMessages() {
+		throw new AssertionError();
+	}
+
+	@Override
+	public void discordbridge$refreshKeepScroll() {
+		int pos = chatScrollbarPos;
+		chatScrollbarPos = 0;
+		refreshTrimmedMessages();
+		chatScrollbarPos = pos;
+		scrollChat(0);
+	}
+
+	@Inject(method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V", at = @At("HEAD"))
+	private void discordbridge$resetHover(GuiGraphicsExtractor graphics, Font font, int ticks, int mouseX, int mouseY,
+			ChatComponent.DisplayMode displayMode, boolean changeCursorOnInsertions, CallbackInfo ci) {
+		if (displayMode.foreground) {
+			ChatMedia.clearHover();
+		}
 	}
 
 	@Inject(method = "addMessageToDisplayQueue", at = @At("TAIL"))

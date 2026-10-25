@@ -6,7 +6,8 @@
 	"client": [
 		"ChatComponentMixin",
 		"ChatDrawingBackgroundMixin",
-		"ChatDrawingFocusedMixin"
+		"ChatDrawingFocusedMixin",
+		"ChatScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

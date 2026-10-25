@@ -6,10 +6,14 @@ import io.github.yourname.discordbridge.config.ClientMediaConfig;
 import io.github.yourname.discordbridge.config.MediaMode;
 import io.github.yourname.discordbridge.media.MediaGeometry;
 import io.github.yourname.discordbridge.media.MediaLayout;
+import io.github.yourname.discordbridge.media.MediaLinks;
 import io.github.yourname.discordbridge.media.MediaRef;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -17,23 +21,29 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.FormattedCharSink;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class ChatMedia {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final Map<Component, List<MediaRef>> MEDIA = new MapMaker().weakKeys().makeMap();
+	private static final Set<MediaRef> REVEALED = Collections.newSetFromMap(new MapMaker().weakKeys().makeMap());
+	private static @Nullable MediaRow hovered;
 
 	private ChatMedia() {}
 
 	/** One reserved chat row of one media item. Emits no characters. */
-	public record MediaRow(MediaRef ref, int boxWidth, int boxHeight, int row, int rowHeight)
+	public record MediaRow(MediaRef ref, int boxWidth, int boxHeight, int row, int rowHeight, boolean hidden)
 			implements FormattedCharSequence {
 		@Override
 		public boolean accept(FormattedCharSink sink) {
 			return true;
 		}
 	}
+
+	/** Hover/hit area in the same local coordinates drawRow uses. */
+	public record Rect(int left, int top, int right, int bottom) {}
 
 	/** Any thread. Ignores null/empty media. Weak identity key: entry dies with the Component. */
 	public static void register(Component fallback, List<MediaRef> media) {
@@ -47,17 +57,21 @@ public final class ChatMedia {
 	public static List<MediaRow> rowsFor(Component content, int maxWidth, double lineSpacing) {
 		ClientMediaConfig cfg = ClientSettings.get();
 		List<MediaRef> refs = MEDIA.get(content);
-		if (cfg.mode == MediaMode.OFF || refs == null) {
+		if (cfg.mode() == MediaMode.OFF || refs == null) {
 			return List.of();
 		}
 		int rowH = MediaLayout.entryHeight(lineSpacing);
-		int maxW = Math.max(16, Math.min(cfg.maxDisplayWidth, maxWidth));
+		int maxW = Math.max(16, Math.min(cfg.displayWidth(), maxWidth));
 		List<MediaRow> out = new ArrayList<>();
 		for (MediaRef ref : refs) {
-			MediaGeometry.Box box = MediaGeometry.Box.fit(ref.width(), ref.height(), maxW, cfg.maxDisplayHeight);
+			MediaGeometry.Box box = MediaGeometry.Box.fit(ref.width(), ref.height(), maxW, cfg.displayHeight());
+			if (cfg.clickToReveal && !isRevealed(ref)) {
+				out.add(new MediaRow(ref, box.width(), box.height(), 0, rowH, true));
+				continue;
+			}
 			int n = MediaLayout.rows(box.height(), rowH);
 			for (int r = 0; r < n; r++) {
-				out.add(new MediaRow(ref, box.width(), box.height(), r, rowH));
+				out.add(new MediaRow(ref, box.width(), box.height(), r, rowH, false));
 			}
 		}
 		return out;
@@ -70,6 +84,11 @@ public final class ChatMedia {
 				return;
 			}
 			Minecraft mc = Minecraft.getInstance();
+			if (row.hidden()) {
+				g.text(mc.font, Component.translatable("discordbridge.media.reveal"), 0, textTop,
+						ARGB.multiplyAlpha(0xFF7289DA, opacity));
+				return;
+			}
 			int top = MediaLayout.rowTop(textTop, mc.options.chatLineSpacing().get());
 			ClientMediaManager m = ClientMediaManager.get();
 			ClientMediaManager.Drawable d = m.request(row.ref());
@@ -98,5 +117,48 @@ public final class ChatMedia {
 		} catch (RuntimeException e) {
 			LOG.debug("discordbridge media row draw failed", e);
 		}
+	}
+
+	public static void reveal(MediaRef ref) {
+		REVEALED.add(ref);
+	}
+
+	public static boolean isRevealed(MediaRef ref) {
+		return REVEALED.contains(ref);
+	}
+
+	/** Hover area in the same local coords drawRow uses; null when the row shows nothing clickable. */
+	public static @Nullable Rect hitRect(MediaRow row, int textTop) {
+		Minecraft mc = Minecraft.getInstance();
+		int top = MediaLayout.rowTop(textTop, mc.options.chatLineSpacing().get());
+		if (row.hidden()) {
+			return new Rect(0, top, mc.font.width(Component.translatable("discordbridge.media.reveal")),
+					top + row.rowHeight());
+		}
+		MediaLayout.Slice sl = MediaLayout.slice(row.row(), row.rowHeight(), row.boxHeight(), row.boxHeight());
+		return sl.destHeight() <= 0 ? null : new Rect(0, top, row.boxWidth(), top + sl.destHeight());
+	}
+
+	public static List<Component> tooltip(MediaRow row) {
+		String label = MediaLinks.label(row.ref());
+		List<Component> out = new ArrayList<>(2);
+		if (!label.isEmpty()) {
+			out.add(Component.literal(label));
+		}
+		out.add(Component.translatable(row.hidden() ? "discordbridge.media.tooltip.reveal" : "discordbridge.media.tooltip.open")
+				.withStyle(ChatFormatting.GRAY));
+		return out;
+	}
+
+	public static void setHovered(MediaRow row) {
+		hovered = row;
+	}
+
+	public static @Nullable MediaRow hovered() {
+		return hovered;
+	}
+
+	public static void clearHover() {
+		hovered = null;
 	}
 }
