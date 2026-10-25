@@ -37,8 +37,9 @@ public final class ChatMedia {
 
 	private ChatMedia() {}
 
-	/** One reserved chat row of one media item. Emits no characters. */
-	public record MediaRow(MediaRef ref, int boxWidth, int boxHeight, int row, int rowHeight, boolean hidden)
+	/** One reserved chat row of one media item, or its caption row. Emits no characters. */
+	public record MediaRow(MediaRef ref, int boxWidth, int boxHeight, int row, int rowHeight, boolean hidden,
+			boolean caption)
 			implements FormattedCharSequence {
 		@Override
 		public boolean accept(FormattedCharSink sink) {
@@ -97,7 +98,7 @@ public final class ChatMedia {
 			}
 			Map<String, MediaLinkText.LinkState> states = new LinkedHashMap<>();
 			for (MediaRef ref : refs) {
-				if (ref.linkUrl() == null) {
+				if (ref.linkUrl() == null || ref.kind() == MediaRef.Kind.VIDEO) {
 					continue;
 				}
 				ClientMediaManager.State f = failure(ref);
@@ -130,12 +131,15 @@ public final class ChatMedia {
 			}
 			MediaGeometry.Box box = MediaGeometry.Box.fit(ref.width(), ref.height(), maxW, cfg.displayHeight());
 			if (cfg.clickToReveal && !isRevealed(ref)) {
-				out.add(new MediaRow(ref, box.width(), box.height(), 0, rowH, true));
+				out.add(new MediaRow(ref, box.width(), box.height(), 0, rowH, true, false));
 				continue;
+			}
+			if (ref.kind() == MediaRef.Kind.VIDEO) {
+				out.add(new MediaRow(ref, box.width(), box.height(), 0, rowH, false, true));
 			}
 			int n = MediaLayout.rows(box.height(), rowH);
 			for (int r = 0; r < n; r++) {
-				out.add(new MediaRow(ref, box.width(), box.height(), r, rowH, false));
+				out.add(new MediaRow(ref, box.width(), box.height(), r, rowH, false, false));
 			}
 		}
 		return out;
@@ -151,6 +155,11 @@ public final class ChatMedia {
 			if (row.hidden()) {
 				g.text(mc.font, Component.translatable("discordbridge.media.reveal"), 0, textTop,
 						ARGB.multiplyAlpha(0xFF7289DA, opacity));
+				return;
+			}
+			if (row.caption()) {
+				g.text(mc.font, Component.translatable("discordbridge.media.videoAttached"), 0, textTop,
+						ARGB.multiplyAlpha(0xFFAAAAAA, opacity));
 				return;
 			}
 			int top = MediaLayout.rowTop(textTop, mc.options.chatLineSpacing().get());
@@ -197,6 +206,10 @@ public final class ChatMedia {
 		int top = MediaLayout.rowTop(textTop, mc.options.chatLineSpacing().get());
 		if (row.hidden()) {
 			return new Rect(0, top, mc.font.width(Component.translatable("discordbridge.media.reveal")),
+					top + row.rowHeight());
+		}
+		if (row.caption()) {
+			return new Rect(0, top, mc.font.width(Component.translatable("discordbridge.media.videoAttached")),
 					top + row.rowHeight());
 		}
 		MediaLayout.Slice sl = MediaLayout.slice(row.row(), row.rowHeight(), row.boxHeight(), row.boxHeight());

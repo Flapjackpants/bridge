@@ -128,10 +128,10 @@ class MediaPipelineTest {
 	}
 
 	@Test
-	void videoNeverCarriesLink() {
+	void videoCarriesLink() {
 		MediaRef r = run(attLink("video/mp4", "v.mp4", "https://example.com/v")).get(0);
 		assertEquals(MediaRef.Kind.VIDEO, r.kind());
-		assertNull(r.linkUrl());
+		assertEquals("https://example.com/v", r.linkUrl());
 	}
 
 	@Test
