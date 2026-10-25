@@ -5,20 +5,25 @@
 	"name": "Discord Bridge",
 	"description": "Relays Minecraft chat and events to a Discord channel and Discord messages into Minecraft.",
 	"authors": [
-		"yourname"
+		"Flapjackpants"
 	],
-	"license": "CC0-1.0",
+	"contact": {
+		"homepage": "https://github.com/Flapjackpants/bridge",
+		"sources": "https://github.com/Flapjackpants/bridge",
+		"issues": "https://github.com/Flapjackpants/bridge/issues"
+	},
+	"license": "MIT",
 	"icon": "assets/discordbridge/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"io.github.yourname.discordbridge.DiscordBridgeMod"
+			"io.github.flapjackpants.discordbridge.DiscordBridgeMod"
 		],
 		"client": [
-			"io.github.yourname.discordbridge.client.DiscordBridgeClient"
+			"io.github.flapjackpants.discordbridge.client.DiscordBridgeClient"
 		],
 		"modmenu": [
-			"io.github.yourname.discordbridge.client.ModMenuIntegration"
+			"io.github.flapjackpants.discordbridge.client.ModMenuIntegration"
 		]
 	},
 	"mixins": [

@@ -32,6 +32,13 @@ bin/
 
 run/
 
+# logs
+
+logs/
+*.log
+*.log.gz
+crash-reports/
+
 # java
 
 hs_err_*.log

@@ -1,4 +1,0 @@
-[18:27:43] [Test worker/ERROR]: Could not read /var/folders/ym/628t_hcj0r9ddm82nns5rjhw0000gn/T/junit-11973108321728755821/cfg.json (com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 8 path $.not
-See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json); using defaults and leaving the file untouched
-[18:27:43] [Test worker/ERROR]: Could not read /var/folders/ym/628t_hcj0r9ddm82nns5rjhw0000gn/T/junit-18058488233322055154/c.json (com.google.gson.stream.MalformedJsonException: Expected ':' at line 1 column 8 path $.not
-See https://github.com/google/gson/blob/main/Troubleshooting.md#malformed-json); using defaults and leaving the file untouched

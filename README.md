@@ -1,10 +1,20 @@
 # Discord Bridge
 
-Fabric mod (Minecraft 26.3, Java 25) that links a dedicated server's chat to a Discord channel.
+Fabric mod that links a Minecraft server's chat to a Discord channel.
+
+## Features
 
 - Minecraft → Discord: chat (via webhook with the player's name and head avatar), join/leave, deaths, server start/stop.
 - Discord → Minecraft: messages appear as colored system messages with a hover showing the Discord account and a clickable link to the message. Attachments appear as clickable `[image]` / `[file: name]` labels.
 - Works with vanilla clients. Mass mentions (`@everyone`, `@here`) are neutralized in both directions.
+
+## Requirements
+
+- Minecraft 26.3
+- Java 25
+- [Fabric Loader](https://fabricmc.net/use/) 0.19.3 or newer and [Fabric API](https://modrinth.com/mod/fabric-api)
+- A Discord bot (see [Discord bot setup](#discord-bot-setup))
+- Optional: [Mod Menu](https://modrinth.com/mod/modmenu) on clients, for the in-game settings screen
 
 ## Install
 
@@ -90,9 +100,12 @@ The bot token grants full control of the bot. Never share it, commit it, or type
 
 ## Build
 
-```
+```bash
 ./gradlew build
 ```
 
-The shaded jar is `build/libs/discordbridge-<version>.jar`.
-# bridge
+The shaded jar is `build/libs/discordbridge-<version>.jar`. Run the tests alone with `./gradlew test`.
+
+## License
+
+[MIT](LICENSE) © Flapjackpants
