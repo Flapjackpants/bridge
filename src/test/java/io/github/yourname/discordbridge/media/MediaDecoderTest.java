@@ -173,5 +173,37 @@ class MediaDecoderTest {
 		byte[] webp = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P'};
 		assertThrows(IOException.class, () -> MediaDecoder.decode(webp, true, LIMITS));
 		assertThrows(IOException.class, () -> MediaDecoder.decode(new byte[0], true, LIMITS));
+		byte[] riff = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'A', 'V', 'I', ' '};
+		assertThrows(IOException.class, () -> MediaDecoder.decode(riff, true, LIMITS));
+	}
+
+	/** 16x16 lossless: red (50 ms), then a 4x4 blue sub-rect at (8,8) blended over it (70 ms), then green (90 ms). */
+	private static byte[] animWebp() throws IOException {
+		try (var in = MediaDecoderTest.class.getResourceAsStream("/media/anim.webp")) {
+			return in.readAllBytes();
+		}
+	}
+
+	@Test
+	void animatedWebpComposited() throws Exception {
+		Frames f = MediaDecoder.decode(animWebp(), true, LIMITS);
+		assertEquals(16, f.width());
+		assertEquals(16, f.height());
+		assertTrue(f.animated());
+		assertEquals(3, f.argb().size());
+		assertArrayEquals(new int[] {50, 70, 90}, f.delaysMs());
+		assertEquals(RED, f.argb().get(0)[9 * 16 + 9]);
+		assertEquals(RED, f.argb().get(1)[0]);
+		assertEquals(BLUE, f.argb().get(1)[9 * 16 + 9]);
+		assertEquals(RED, f.argb().get(1)[12 * 16 + 12]);
+		assertEquals(GREEN, f.argb().get(2)[9 * 16 + 9]);
+	}
+
+	@Test
+	void animatedWebpFirstFrameWhenStatic() throws Exception {
+		Frames f = MediaDecoder.decode(animWebp(), false, LIMITS);
+		assertFalse(f.animated());
+		assertEquals(1, f.argb().size());
+		assertEquals(RED, f.argb().get(0)[0]);
 	}
 }

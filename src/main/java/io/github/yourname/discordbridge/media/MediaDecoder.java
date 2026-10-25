@@ -1,5 +1,6 @@
 package io.github.yourname.discordbridge.media;
 
+import com.twelvemonkeys.imageio.plugins.webp.WebPImageReaderSpi;
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -13,6 +14,7 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageInputStream;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Node;
 
 public final class MediaDecoder {
@@ -26,22 +28,32 @@ public final class MediaDecoder {
 
 	/** IOException for unsupported format, corrupt data, or source side > maxSourceSide. */
 	public static Frames decode(byte[] data, boolean animate, Limits limits) throws IOException {
-		boolean gif = startsWith(data, "GIF87a") || startsWith(data, "GIF89a");
+		boolean gif = startsWith(data, 0, "GIF87a") || startsWith(data, 0, "GIF89a");
+		boolean webp = startsWith(data, 0, "RIFF") && startsWith(data, 8, "WEBP");
 		boolean other = data.length >= 4 && (u(data[0]) == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G')
 				|| data.length >= 3 && u(data[0]) == 0xFF && u(data[1]) == 0xD8 && u(data[2]) == 0xFF
 				|| data.length >= 2 && data[0] == 'B' && data[1] == 'M';
-		if (!gif && !other) {
+		if (!gif && !webp && !other) {
 			throw new IOException("unsupported format");
 		}
 		try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(data))) {
-			Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
-			if (!readers.hasNext()) {
-				throw new IOException("unsupported format");
+			ImageReader reader;
+			if (webp) {
+				// Built directly: the shaded plugin is deliberately not registered with ImageIO
+				reader = new WebPImageReaderSpi().createReaderInstance();
+			} else {
+				Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+				if (!readers.hasNext()) {
+					throw new IOException("unsupported format");
+				}
+				reader = readers.next();
 			}
-			ImageReader reader = readers.next();
 			try {
 				reader.setInput(in, false, false);
-				return gif ? decodeGif(reader, animate, limits) : decodeStatic(reader, limits);
+				if (gif) {
+					return decodeGif(reader, animate, limits);
+				}
+				return webp ? decodeWebp(reader, data, animate, limits) : decodeStatic(reader, limits);
 			} finally {
 				reader.dispose();
 			}
@@ -54,12 +66,12 @@ public final class MediaDecoder {
 		return b & 0xFF;
 	}
 
-	private static boolean startsWith(byte[] data, String prefix) {
-		if (data.length < prefix.length()) {
+	private static boolean startsWith(byte[] data, int offset, String prefix) {
+		if (data.length < offset + prefix.length()) {
 			return false;
 		}
 		for (int i = 0; i < prefix.length(); i++) {
-			if (data[i] != prefix.charAt(i)) {
+			if (data[offset + i] != prefix.charAt(i)) {
 				return false;
 			}
 		}
@@ -86,14 +98,18 @@ public final class MediaDecoder {
 		return new Frames(box.width(), box.height(), List.of(pixels(out)), new int[] {0}, false);
 	}
 
+	/** Where a frame goes on the canvas: replace = overwrite its rect instead of alpha-blending over it. */
+	private record Placement(int left, int top, int delayMs, boolean replace, String disposal) {}
+
+	@FunctionalInterface
+	private interface Placements {
+		Placement get(int frame) throws IOException;
+	}
+
 	private static Frames decodeGif(ImageReader reader, boolean animate, Limits limits) throws IOException {
 		int total = reader.getNumImages(true);
 		if (total < 1) {
 			throw new IOException("no frames");
-		}
-		int n = Math.min(total, limits.maxSourceFrames());
-		if (!animate) {
-			n = 1;
 		}
 		int[] logical = logicalSize(reader);
 		int lw = logical[0];
@@ -103,6 +119,34 @@ public final class MediaDecoder {
 			lw = first[0] + reader.getWidth(0);
 			lh = first[1] + reader.getHeight(0);
 		}
+		return compose(reader, lw, lh, animate ? Math.min(total, limits.maxSourceFrames()) : 1, i -> {
+			IIOMetadata md = reader.getImageMetadata(i);
+			int[] info = frameInfo(md);
+			return new Placement(info[0], info[1], delayMs(info[2] * 10), false, disposalOf(md));
+		}, limits);
+	}
+
+	/** Still WebP decodes like PNG; animated WebP frames are sub-rects placed by the ANMF chunks. */
+	private static Frames decodeWebp(ImageReader reader, byte[] data, boolean animate, Limits limits)
+			throws IOException {
+		WebpAnimation anim = webpAnimation(data);
+		if (anim == null) {
+			return decodeStatic(reader, limits);
+		}
+		int total = Math.min(reader.getNumImages(true), anim.frames().size());
+		if (total < 1) {
+			throw new IOException("no frames");
+		}
+		return compose(reader, anim.width(), anim.height(), animate ? Math.min(total, limits.maxSourceFrames()) : 1,
+				i -> anim.frames().get(i), limits);
+	}
+
+	private static int delayMs(int ms) {
+		return ms <= 10 ? 100 : ms;
+	}
+
+	private static Frames compose(ImageReader reader, int lw, int lh, int n, Placements placements, Limits limits)
+			throws IOException {
 		if (lw > limits.maxSourceSide() || lh > limits.maxSourceSide()) {
 			throw new IOException("source too large");
 		}
@@ -118,9 +162,8 @@ public final class MediaDecoder {
 		List<int[]> kept = new ArrayList<>();
 		List<Integer> delays = new ArrayList<>();
 		for (int i = 0; i < n; i++) {
-			IIOMetadata md = reader.getImageMetadata(i);
-			int[] info = frameInfo(md);
-			String disposal = disposalOf(md);
+			Placement p = placements.get(i);
+			String disposal = p.disposal();
 			BufferedImage frame = reader.read(i);
 			BufferedImage previous = null;
 			if (disposal.equals("restoreToPrevious")) {
@@ -128,12 +171,12 @@ public final class MediaDecoder {
 			}
 			Graphics2D g = canvas.createGraphics();
 			try {
-				g.setComposite(AlphaComposite.SrcOver);
-				g.drawImage(frame, info[0], info[1], null);
+				g.setComposite(p.replace() ? AlphaComposite.Src : AlphaComposite.SrcOver);
+				g.drawImage(frame, p.left(), p.top(), null);
 			} finally {
 				g.dispose();
 			}
-			int delay = info[2] * 10 <= 10 ? 100 : info[2] * 10;
+			int delay = p.delayMs();
 			if (i % step == 0) {
 				kept.add(scaledPixels(canvas, bw, bh));
 				delays.add(delay);
@@ -145,7 +188,7 @@ public final class MediaDecoder {
 				Graphics2D cg = canvas.createGraphics();
 				try {
 					cg.setComposite(AlphaComposite.Clear);
-					cg.fillRect(info[0], info[1], frame.getWidth(), frame.getHeight());
+					cg.fillRect(p.left(), p.top(), frame.getWidth(), frame.getHeight());
 				} finally {
 					cg.dispose();
 				}
@@ -158,6 +201,43 @@ public final class MediaDecoder {
 			delaysMs[i] = delays.get(i);
 		}
 		return new Frames(bw, bh, List.copyOf(kept), delaysMs, kept.size() > 1);
+	}
+
+	private record WebpAnimation(int width, int height, List<Placement> frames) {}
+
+	/** Canvas size and ANMF placements of an animated WebP; null for a still image. */
+	private static @Nullable WebpAnimation webpAnimation(byte[] data) throws IOException {
+		int pos = 12;
+		int width = 0;
+		int height = 0;
+		boolean animated = false;
+		List<Placement> frames = new ArrayList<>();
+		while (pos + 8 <= data.length) {
+			long size = u32(data, pos + 4);
+			int body = pos + 8;
+			if (body + size > data.length) {
+				throw new IOException("truncated webp chunk");
+			}
+			if (startsWith(data, pos, "VP8X") && size >= 10) {
+				animated = (data[body] & 0x02) != 0;
+				width = u24(data, body + 4) + 1;
+				height = u24(data, body + 7) + 1;
+			} else if (startsWith(data, pos, "ANMF") && size >= 16) {
+				int flags = data[body + 15];
+				frames.add(new Placement(u24(data, body) * 2, u24(data, body + 3) * 2, delayMs(u24(data, body + 12)),
+						(flags & 0x02) != 0, (flags & 0x01) != 0 ? "restoreToBackgroundColor" : "none"));
+			}
+			pos = body + (int) size + (int) (size & 1);
+		}
+		return animated && !frames.isEmpty() ? new WebpAnimation(width, height, List.copyOf(frames)) : null;
+	}
+
+	private static int u24(byte[] data, int at) {
+		return u(data[at]) | u(data[at + 1]) << 8 | u(data[at + 2]) << 16;
+	}
+
+	private static long u32(byte[] data, int at) {
+		return u24(data, at) | (long) u(data[at + 3]) << 24;
 	}
 
 	private static BufferedImage copy(BufferedImage src) {

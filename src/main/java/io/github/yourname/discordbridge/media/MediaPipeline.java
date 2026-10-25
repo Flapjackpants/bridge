@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -221,9 +222,11 @@ public final class MediaPipeline {
 	}
 
 	private static final Pattern GIPHY_MEDIA_HOST = Pattern.compile("media\\d?\\.giphy\\.com");
-	private static final Pattern KLIPY_HOST = Pattern.compile("static\\d*\\.klipy\\.com");
 
-	/** .gif rendition for known GIF hosts, else null. Never throws. */
+	/**
+	 * .gif rendition for known GIF hosts, else null. Never throws. Klipy is absent on purpose: its renditions
+	 * have unrelated random names, and a guessed .gif answers 200 with a "content no longer available" image.
+	 */
 	public static @Nullable String gifRendition(@Nullable String url) {
 		if (url == null) {
 			return null;
@@ -255,15 +258,6 @@ public final class MediaPipeline {
 			}
 			if (host.equals("i.imgur.com")) {
 				return singleSegmentGif(host, segments, List.of("mp4", "gifv", "webm", "gif"));
-			}
-			if (KLIPY_HOST.matcher(host).matches()) {
-				String path = uri.getPath();
-				String lower = path.toLowerCase(Locale.ROOT);
-				for (String ext : new String[] {".mp4", ".webp", ".gif"}) {
-					if (lower.endsWith(ext)) {
-						return "https://" + host + path.substring(0, path.length() - ext.length()) + ".gif";
-					}
-				}
 			}
 			return null;
 		} catch (URISyntaxException | RuntimeException e) {
@@ -338,5 +332,19 @@ public final class MediaPipeline {
 
 	public static boolean mayGainEmbeds(@Nullable String content, int embedCount, int attachmentCount) {
 		return embedCount == 0 && attachmentCount == 0 && content != null && LINK.matcher(content).find();
+	}
+
+	/** True if any link in content is on an allowed media host, so its embed is worth a longer wait. */
+	public static boolean linksAllowedMedia(@Nullable String content, Policy policy) {
+		if (content == null) {
+			return false;
+		}
+		Matcher m = LINK.matcher(content);
+		while (m.find()) {
+			if (policy.allows(m.group())) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

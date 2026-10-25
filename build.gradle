@@ -55,6 +55,8 @@ dependencies {
 		exclude module: "opus-java"
 		exclude group: "com.google.crypto.tink"
 	}
+	// Animated WebP decoding (Klipy embeds). MediaDecoder builds the reader directly, not via ImageIO SPI.
+	shade("com.twelvemonkeys.imageio:imageio-webp:${project.twelvemonkeys_version}")
 
 	testImplementation(platform("org.junit:junit-bom:5.+"))
 	testImplementation("org.junit.jupiter:junit-jupiter")
@@ -106,9 +108,11 @@ shadowJar {
 	duplicatesStrategy = DuplicatesStrategy.INCLUDE
 	mergeServiceFiles()
 	exclude "org/slf4j/**" // Minecraft provides SLF4J
+	exclude "META-INF/services/javax.imageio.spi.*" // keep the WebP reader private, not a global ImageIO plugin
 	def p = "${project.maven_group}.discordbridge.shadow"
 	["okhttp3", "okio", "kotlin", "com.fasterxml.jackson", "com.neovisionaries",
-	 "org.apache.commons.collections4", "gnu.trove", "org.json", "org.jetbrains", "org.intellij"].each { relocate it, "${p}.${it}" }
+	 "org.apache.commons.collections4", "gnu.trove", "org.json", "org.jetbrains", "org.intellij",
+	 "com.twelvemonkeys"].each { relocate it, "${p}.${it}" }
 }
 
 assemble.dependsOn shadowJar
