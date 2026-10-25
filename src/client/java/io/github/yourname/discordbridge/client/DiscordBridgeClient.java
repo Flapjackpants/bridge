@@ -1,5 +1,6 @@
 package io.github.yourname.discordbridge.client;
 
+import io.github.yourname.discordbridge.client.media.ClientMediaManager;
 import io.github.yourname.discordbridge.net.BridgeProtocol;
 import io.github.yourname.discordbridge.net.HelloPayload;
 import io.github.yourname.discordbridge.net.RichMessagePayload;
@@ -15,6 +16,7 @@ public final class DiscordBridgeClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		ClientSettings.init();
+		ClientMediaManager.init();
 
 		ClientPlayNetworking.registerGlobalReceiver(HelloPayload.TYPE, (payload, ctx) ->
 				LOG.debug("discordbridge server protocol v{}", payload.protocolVersion()));
