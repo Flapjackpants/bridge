@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import io.github.yourname.discordbridge.media.MediaDecoder;
+import io.github.yourname.discordbridge.media.MediaFetchPlan;
+import io.github.yourname.discordbridge.media.MediaRef;
 import io.github.yourname.discordbridge.media.MediaPipeline;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -19,7 +21,9 @@ public final class ClientMediaConfig {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-	public boolean enabled = true;
+	public MediaMode mode = MediaMode.ANIMATED;    // OFF: no fetching, text fallback only
+	public boolean clickToReveal = false;          // media hidden until the player clicks it
+	public boolean showInChatOverlay = true;       // render media in the HUD chat, not only in the open chat screen
 	public List<String> allowedHosts = new ArrayList<>(BridgeConfig.DEFAULT_MEDIA_HOSTS);
 	public int maxDownloadBytes = 8 * 1024 * 1024; // clamp 64 KiB .. 32 MiB
 	public int downloadThreads = 2;                // clamp 1..2
@@ -84,7 +88,7 @@ public final class ClientMediaConfig {
 	}
 
 	public long memoryBudgetBytes() {
-		return Math.clamp(memoryBudgetMiB, 8, 1024) * 1024L * 1024L;
+		return memoryBudgetMiB() * 1024L * 1024L;
 	}
 
 	public long diskCacheBytes() {
@@ -97,7 +101,42 @@ public final class ClientMediaConfig {
 	}
 
 	public MediaDecoder.Limits limits() {
-		return new MediaDecoder.Limits(Math.clamp(decodeMaxSide, 16, 512), Math.clamp(maxFrames, 1, 256),
-				2048, 500, 4_194_304L, 4096);
+		return new MediaDecoder.Limits(Math.clamp(decodeMaxSide, 16, 512),
+				mode() == MediaMode.STATIC ? 1 : Math.clamp(maxFrames, 1, 256), 2048, 500, 4_194_304L, 4096);
+	}
+
+	public MediaMode mode() {
+		return mode == null ? MediaMode.ANIMATED : mode;
+	}
+
+	public int memoryBudgetMiB() {
+		return Math.clamp(memoryBudgetMiB, 8, 1024);
+	}
+
+	public ClientMediaConfig copy() {
+		return GSON.fromJson(GSON.toJson(this), ClientMediaConfig.class);
+	}
+
+	/** OFF: none; STATIC: non-animated sources first; ANIMATED: plan as is. Never throws; unmodifiable. */
+	public List<MediaFetchPlan.Source> sources(MediaRef ref) {
+		try {
+			MediaMode m = mode();
+			if (m == MediaMode.OFF) {
+				return List.of();
+			}
+			List<MediaFetchPlan.Source> plan = MediaFetchPlan.plan(ref, policy());
+			if (m == MediaMode.ANIMATED) {
+				return plan;
+			}
+			List<MediaFetchPlan.Source> still = new ArrayList<>();
+			List<MediaFetchPlan.Source> moving = new ArrayList<>();
+			for (MediaFetchPlan.Source s : plan) {
+				(s.animated() ? moving : still).add(s);
+			}
+			still.addAll(moving);
+			return List.copyOf(still);
+		} catch (RuntimeException e) {
+			return List.of();
+		}
 	}
 }

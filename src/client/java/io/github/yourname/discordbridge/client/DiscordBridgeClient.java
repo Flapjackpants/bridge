@@ -14,6 +14,8 @@ public final class DiscordBridgeClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		ClientSettings.init();
+
 		ClientPlayNetworking.registerGlobalReceiver(HelloPayload.TYPE, (payload, ctx) ->
 				LOG.debug("discordbridge server protocol v{}", payload.protocolVersion()));
 

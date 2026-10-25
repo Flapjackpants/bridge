@@ -16,6 +16,9 @@
 		],
 		"client": [
 			"io.github.yourname.discordbridge.client.DiscordBridgeClient"
+		],
+		"modmenu": [
+			"io.github.yourname.discordbridge.client.ModMenuIntegration"
 		]
 	},
 	"depends": {
@@ -23,5 +26,8 @@
 		"minecraft": "~26.3",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
 	}
 }

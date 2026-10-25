@@ -58,6 +58,20 @@ Clients with the mod get rich messages (author, avatar, media list) after a `dis
 Vanilla clients, and everyone when `richMedia` is `false`, see the same chat line as before.
 Media URLs are limited to `mediaAllowedHosts`; the server never fetches media itself.
 
+### Client settings
+
+File: `config/discordbridge-client.json`. Editable in-game through [Mod Menu](https://modrinth.com/mod/modmenu) (optional): Mods → Discord Bridge → Configure. Esc and Done both save.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `mode` | `ANIMATED` | `OFF` (no media fetched, text only), `STATIC` (first frame only), `ANIMATED`. |
+| `maxDisplayHeight` | `90` | Max media height in GUI pixels, 16–240. |
+| `memoryBudgetMiB` | `96` | Decoded-media memory budget, 8–1024. |
+| `clickToReveal` | `false` | Hide media until clicked. |
+| `showInChatOverlay` | `true` | Show media in the HUD chat, not only the open chat screen. |
+
+Other keys in the file are file-only.
+
 ## Commands
 
 Require operator level (same as `/whitelist`).

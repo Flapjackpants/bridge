@@ -3,7 +3,10 @@ package io.github.yourname.discordbridge.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
+import io.github.yourname.discordbridge.media.MediaFetchPlan;
+import io.github.yourname.discordbridge.media.MediaRef;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -49,10 +52,92 @@ class ClientMediaConfigTest {
 		Path f = dir.resolve("sub/c.json");
 		ClientMediaConfig c = ClientMediaConfig.load(f);
 		assertTrue(Files.exists(f));
-		assertTrue(c.enabled);
+		assertEquals(MediaMode.ANIMATED, c.mode());
+		assertFalse(c.clickToReveal);
+		assertTrue(c.showInChatOverlay);
 		c.maxFrames = 7;
+		c.mode = MediaMode.STATIC;
 		c.save(f);
-		assertEquals(7, ClientMediaConfig.load(f).maxFrames);
+		ClientMediaConfig reloaded = ClientMediaConfig.load(f);
+		assertEquals(7, reloaded.maxFrames);
+		assertEquals(MediaMode.STATIC, reloaded.mode());
+	}
+
+	@Test
+	void unknownModeFallsBackToAnimated() throws Exception {
+		Path f = dir.resolve("c.json");
+		Files.writeString(f, "{\"mode\":\"BOGUS\"}");
+		assertEquals(MediaMode.ANIMATED, ClientMediaConfig.load(f).mode());
+	}
+
+	@Test
+	void missingKeysKeepDefaults() throws Exception {
+		Path f = dir.resolve("c.json");
+		Files.writeString(f, "{\"maxFrames\":5}");
+		ClientMediaConfig c = ClientMediaConfig.load(f);
+		assertEquals(5, c.maxFrames);
+		assertEquals(MediaMode.ANIMATED, c.mode());
+		assertTrue(c.showInChatOverlay);
+	}
+
+	@Test
+	void staticLimitsOneFrame() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.maxFrames = 64;
+		c.mode = MediaMode.STATIC;
+		assertEquals(1, c.limits().maxFrames());
+		c.mode = MediaMode.ANIMATED;
+		assertEquals(64, c.limits().maxFrames());
+	}
+
+	@Test
+	void sourcesByMode() {
+		MediaRef ref = new MediaRef(MediaRef.Kind.GIF, "https://cdn.discordapp.com/attachments/1/2/a.gif",
+				"https://media.discordapp.net/attachments/1/2/a.gif?width=256&height=128", 100, 50, 10, "image/gif", "a.gif");
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.mode = MediaMode.OFF;
+		assertTrue(c.sources(ref).isEmpty());
+		c.mode = MediaMode.ANIMATED;
+		List<MediaFetchPlan.Source> animated = c.sources(ref);
+		assertEquals(2, animated.size());
+		assertTrue(animated.get(0).animated());
+		assertFalse(animated.get(1).animated());
+		assertEquals(MediaFetchPlan.plan(ref, c.policy()), animated);
+		c.mode = MediaMode.STATIC;
+		List<MediaFetchPlan.Source> st = c.sources(ref);
+		assertEquals(2, st.size());
+		assertFalse(st.get(0).animated());
+		assertTrue(st.get(0).url().endsWith("&format=png"));
+		assertTrue(st.get(1).animated());
+		assertThrows(UnsupportedOperationException.class, () -> st.add(st.get(0)));
+	}
+
+	@Test
+	void copyIsIndependent() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		ClientMediaConfig d = c.copy();
+		d.mode = MediaMode.OFF;
+		d.maxDisplayHeight = 20;
+		d.allowedHosts.add("example.com");
+		assertEquals(MediaMode.ANIMATED, c.mode());
+		assertEquals(90, c.maxDisplayHeight);
+		assertFalse(c.allowedHosts.contains("example.com"));
+	}
+
+	@Test
+	void budgetClamp() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.memoryBudgetMiB = 1;
+		assertEquals(8, c.memoryBudgetMiB());
+		c.memoryBudgetMiB = 5000;
+		assertEquals(1024, c.memoryBudgetMiB());
+	}
+
+	@Test
+	void modeCycles() {
+		assertEquals(MediaMode.STATIC, MediaMode.OFF.next());
+		assertEquals(MediaMode.ANIMATED, MediaMode.STATIC.next());
+		assertEquals(MediaMode.OFF, MediaMode.ANIMATED.next());
 	}
 
 	@Test
