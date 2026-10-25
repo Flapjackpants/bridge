@@ -1,7 +1,7 @@
 {
 	"required": true,
 	"minVersion": "0.8",
-	"package": "io.github.yourname.discordbridge.client.mixin",
+	"package": "io.github.flapjackpants.discordbridge.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"ChatComponentMixin",
