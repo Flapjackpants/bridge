@@ -63,6 +63,46 @@ class MediaLoaderTest {
 		assertEquals(4, r.sheet().frameHeight());
 	}
 
+	private static final MediaLoader.Fetcher TOO_LARGE = url -> {
+		throw new MediaTooLargeException("too large");
+	};
+
+	@Test
+	void tooLargeReported() throws Exception {
+		MediaLoader.Outcome o = new MediaLoader(TOO_LARGE, null, LIMITS).loadOutcome(List.of(src("u1", "k1")));
+		assertNull(o.result());
+		assertTrue(o.tooLarge());
+	}
+
+	@Test
+	void tooLargeThenSuccess() throws Exception {
+		remote.put("u2", png(8, 4));
+		MediaLoader.Fetcher f = url -> {
+			if (url.equals("u1")) {
+				throw new MediaTooLargeException("too large");
+			}
+			return fetcher.fetch(url);
+		};
+		MediaLoader.Outcome o = new MediaLoader(f, null, LIMITS).loadOutcome(List.of(src("u1", "k1"), src("u2", "k2")));
+		assertNotNull(o.result());
+		assertFalse(o.tooLarge());
+	}
+
+	@Test
+	void plainFailureNotTooLarge() throws Exception {
+		MediaLoader.Outcome o = new MediaLoader(fetcher, null, LIMITS).loadOutcome(List.of(src("u1", "k1")));
+		assertNull(o.result());
+		assertFalse(o.tooLarge());
+	}
+
+	@Test
+	void decodeTooLargeReported() throws Exception {
+		remote.put("u1", png(3000, 10));
+		MediaLoader.Outcome o = new MediaLoader(fetcher, null, LIMITS).loadOutcome(List.of(src("u1", "k1")));
+		assertNull(o.result());
+		assertTrue(o.tooLarge());
+	}
+
 	@Test
 	void usesDiskCache() throws Exception {
 		DiskCache disk = new DiskCache(dir, 1_000_000);

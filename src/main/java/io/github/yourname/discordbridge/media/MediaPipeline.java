@@ -25,7 +25,15 @@ public final class MediaPipeline {
 	public record Candidate(Source source, @Nullable String url, @Nullable String proxyUrl,
 			int width, int height, long sizeBytes, @Nullable String contentType, @Nullable String fileName,
 			@Nullable String thumbUrl, @Nullable String thumbProxyUrl, int thumbWidth, int thumbHeight,
-			@Nullable String thumbContentType) {}
+			@Nullable String thumbContentType, @Nullable String linkUrl) {
+		public Candidate(Source source, @Nullable String url, @Nullable String proxyUrl,
+				int width, int height, long sizeBytes, @Nullable String contentType, @Nullable String fileName,
+				@Nullable String thumbUrl, @Nullable String thumbProxyUrl, int thumbWidth, int thumbHeight,
+				@Nullable String thumbContentType) {
+			this(source, url, proxyUrl, width, height, sizeBytes, contentType, fileName, thumbUrl, thumbProxyUrl,
+					thumbWidth, thumbHeight, thumbContentType, null);
+		}
+	}
 
 	public record Policy(List<String> allowedHosts, long maxBytes, int maxDimension, int maxItems, int previewSize) {
 		/** null → copy of the default hosts; else trimmed, lowercased, blanks/nulls dropped. */
@@ -44,8 +52,8 @@ public final class MediaPipeline {
 
 		public static Policy from(BridgeConfig cfg) {
 			return new Policy(normalizeHosts(cfg.mediaAllowedHosts),
-					cfg.mediaMaxBytes <= 0 ? DEFAULT_MAX_BYTES : cfg.mediaMaxBytes,
-					cfg.mediaMaxDimension <= 0 ? DEFAULT_MAX_DIMENSION : cfg.mediaMaxDimension,
+					DEFAULT_MAX_BYTES,
+					DEFAULT_MAX_DIMENSION,
 					Math.clamp(cfg.mediaMaxItems, 0, MAX_ITEMS_HARD),
 					Math.clamp(cfg.mediaPreviewSize, 16, 1024));
 		}
@@ -112,12 +120,6 @@ public final class MediaPipeline {
 			case EMBED_GIFV -> kind = MediaRef.Kind.GIFV;
 			default -> kind = MediaRef.Kind.VIDEO;
 		}
-		if (c.sizeBytes() > 0 && c.sizeBytes() > policy.maxBytes()) {
-			return null;
-		}
-		if (c.width() > policy.maxDimension() || c.height() > policy.maxDimension()) {
-			return null;
-		}
 
 		String url;
 		String proxy;
@@ -176,7 +178,8 @@ public final class MediaPipeline {
 		if (name.length() > MAX_FILE_NAME) {
 			name = name.substring(0, MAX_FILE_NAME);
 		}
-		return new MediaRef(kind, url, proxy, w, h, c.sizeBytes(), type, name);
+		return new MediaRef(kind, url, proxy, w, h, c.sizeBytes(), type, name,
+				kind == MediaRef.Kind.VIDEO ? null : c.linkUrl());
 	}
 
 	private static String normalizeType(@Nullable String contentType, @Nullable String fileName, @Nullable String url) {

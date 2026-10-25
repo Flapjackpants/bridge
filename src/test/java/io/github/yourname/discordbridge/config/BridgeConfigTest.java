@@ -114,10 +114,11 @@ class BridgeConfigTest {
 		assertTrue(c.richMedia);
 		assertEquals(BridgeConfig.DEFAULT_MEDIA_HOSTS, c.mediaAllowedHosts);
 		String text = Files.readString(f);
-		for (String k : new String[] {"richMedia", "mediaAllowedHosts", "mediaMaxBytes", "mediaMaxDimension",
+		for (String k : new String[] {"richMedia", "mediaAllowedHosts",
 				"mediaMaxItems", "mediaPreviewSize"}) {
 			assertTrue(text.contains(k), k);
 		}
+		assertFalse(text.contains("mediaMaxBytes"));
 	}
 
 	@Test
@@ -127,7 +128,7 @@ class BridgeConfigTest {
 		assertFalse(c.richMedia);
 		assertTrue(c.setByKey("enableInSingleplayer", "true"));
 		assertTrue(c.enableInSingleplayer);
-		assertFalse(c.setByKey("mediaMaxBytes", "5"));
+		assertFalse(c.setByKey("mediaMaxItems", "5"));
 		assertFalse(c.setByKey("richMedia", "maybe"));
 		assertTrue(BridgeConfig.settableKeys().contains("richMedia"));
 	}

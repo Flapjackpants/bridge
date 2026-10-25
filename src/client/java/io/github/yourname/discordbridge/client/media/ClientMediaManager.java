@@ -36,7 +36,7 @@ public final class ClientMediaManager {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final long PROTECT_MS = 2000;
 
-	public enum State { LOADING, READY, FAILED }
+	public enum State { LOADING, READY, FAILED, TOO_LARGE }
 
 	public record Drawable(Identifier texture, MediaGeometry.Sheet sheet, int[] delaysMs, long startMs) {
 		/** Frame index to draw at nowMs (same clock as ClientMediaManager.nowMs()). */
@@ -134,7 +134,8 @@ public final class ClientMediaManager {
 			entries.put(ref, e);
 			List<MediaFetchPlan.Source> src = cfg.sources(ref);
 			if (src.isEmpty()) {
-				e.state = State.FAILED;
+				e.state = ref.sizeBytes() > cfg.policy().maxBytes() ? State.TOO_LARGE : State.FAILED;
+				ChatMedia.markFailed(ref, e.state);
 				return null;
 			}
 			int gen = generation;
@@ -142,6 +143,7 @@ public final class ClientMediaManager {
 			ThreadPoolExecutor pool = exec;
 			if (pool == null) {
 				e.state = State.FAILED;
+				ChatMedia.markFailed(ref, State.FAILED);
 				return null;
 			}
 			pool.execute(() -> work(ref, src, gen, l));
@@ -177,7 +179,8 @@ public final class ClientMediaManager {
 
 	private void work(MediaRef ref, List<MediaFetchPlan.Source> src, int gen, MediaLoader l) {
 		try {
-			MediaLoader.Result r = l.load(src);
+			MediaLoader.Outcome o = l.loadOutcome(src);
+			MediaLoader.Result r = o.result();
 			NativeImage img = null;
 			if (r != null) {
 				int w = r.sheet().width();
@@ -195,16 +198,17 @@ public final class ClientMediaManager {
 				}
 			}
 			NativeImage fimg = img;
-			mc.execute(() -> finish(ref, gen, r, fimg));
+			mc.execute(() -> finish(ref, gen, r, fimg, o.tooLarge()));
 		} catch (InterruptedIOException e) {
 			// executor shut down; nothing to report
 		} catch (RuntimeException e) {
 			LOG.debug("media work failed for {}: {}", ref.url(), e.toString());
-			mc.execute(() -> finish(ref, gen, null, null));
+			mc.execute(() -> finish(ref, gen, null, null, false));
 		}
 	}
 
-	private void finish(MediaRef ref, int gen, MediaLoader.@Nullable Result r, @Nullable NativeImage img) {
+	private void finish(MediaRef ref, int gen, MediaLoader.@Nullable Result r, @Nullable NativeImage img,
+			boolean tooLarge) {
 		Entry e = entries.get(ref);
 		if (gen != generation || e == null || e.state != State.LOADING) {
 			if (img != null) {
@@ -216,7 +220,8 @@ public final class ClientMediaManager {
 			if (img != null) {
 				img.close();
 			}
-			e.state = State.FAILED;
+			e.state = tooLarge || ref.sizeBytes() > cfg.policy().maxBytes() ? State.TOO_LARGE : State.FAILED;
+			ChatMedia.markFailed(ref, e.state);
 			return;
 		}
 		Identifier id = Identifier.fromNamespaceAndPath("discordbridge", "media/" + textureSeq++);

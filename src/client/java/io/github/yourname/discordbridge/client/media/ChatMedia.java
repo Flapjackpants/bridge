@@ -8,8 +8,10 @@ import io.github.yourname.discordbridge.media.MediaGeometry;
 import io.github.yourname.discordbridge.media.MediaLayout;
 import io.github.yourname.discordbridge.media.MediaLinks;
 import io.github.yourname.discordbridge.media.MediaRef;
+import io.github.yourname.discordbridge.text.MediaLinkText;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +31,9 @@ public final class ChatMedia {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final Map<Component, List<MediaRef>> MEDIA = new MapMaker().weakKeys().makeMap();
 	private static final Set<MediaRef> REVEALED = Collections.newSetFromMap(new MapMaker().weakKeys().makeMap());
+	private static final Map<MediaRef, ClientMediaManager.State> OUTCOMES = new MapMaker().weakKeys().makeMap();
 	private static @Nullable MediaRow hovered;
+	private static boolean dirty;
 
 	private ChatMedia() {}
 
@@ -53,17 +57,77 @@ public final class ChatMedia {
 		MEDIA.put(fallback, List.copyOf(media));
 	}
 
+	/** True iff cfg.mode() != MediaMode.OFF && cfg.showInChatOverlay. When false: no rows, no fetches, text untouched. */
+	private static boolean mediaEnabled(ClientMediaConfig cfg) {
+		return cfg.mode() != MediaMode.OFF && cfg.showInChatOverlay;
+	}
+
+	/** Render thread. Records a terminal failure for ref (state FAILED or TOO_LARGE) and marks chat dirty. */
+	public static void markFailed(MediaRef ref, ClientMediaManager.State state) {
+		OUTCOMES.put(ref, state);
+		dirty = true;
+	}
+
+	/** Returns true once after any markFailed call, then false until the next one. */
+	public static boolean consumeDirty() {
+		boolean d = dirty;
+		dirty = false;
+		return d;
+	}
+
+	private static ClientMediaManager.@Nullable State failure(MediaRef ref) {
+		ClientMediaManager.State known = OUTCOMES.get(ref);
+		if (known != null) {
+			return known;
+		}
+		ClientMediaManager.State s = ClientMediaManager.get().state(ref);
+		if (s == ClientMediaManager.State.FAILED || s == ClientMediaManager.State.TOO_LARGE) {
+			OUTCOMES.put(ref, s);
+			return s;
+		}
+		return null;
+	}
+
+	/** Chat text to display for content; returns content unchanged when not registered, !mediaEnabled, or on error. */
+	public static Component displayText(Component content) {
+		try {
+			List<MediaRef> refs = MEDIA.get(content);
+			if (refs == null || !mediaEnabled(ClientSettings.get())) {
+				return content;
+			}
+			Map<String, MediaLinkText.LinkState> states = new LinkedHashMap<>();
+			for (MediaRef ref : refs) {
+				if (ref.linkUrl() == null) {
+					continue;
+				}
+				ClientMediaManager.State f = failure(ref);
+				MediaLinkText.LinkState s = f == ClientMediaManager.State.TOO_LARGE ? MediaLinkText.LinkState.TOO_LARGE
+						: f == ClientMediaManager.State.FAILED ? MediaLinkText.LinkState.FAILED
+						: MediaLinkText.LinkState.HIDE;
+				states.merge(ref.linkUrl(), s, MediaLinkText::combine);
+			}
+			return MediaLinkText.rewrite(content, states,
+					Component.translatable("discordbridge.media.link.failed").withStyle(ChatFormatting.GRAY),
+					Component.translatable("discordbridge.media.link.tooLarge").withStyle(ChatFormatting.GRAY));
+		} catch (RuntimeException e) {
+			return content;
+		}
+	}
+
 	/** Rows for a chat message in top-to-bottom order (all rows of media[0], then media[1], …). Empty if not registered or mode OFF. */
 	public static List<MediaRow> rowsFor(Component content, int maxWidth, double lineSpacing) {
 		ClientMediaConfig cfg = ClientSettings.get();
 		List<MediaRef> refs = MEDIA.get(content);
-		if (cfg.mode() == MediaMode.OFF || refs == null) {
+		if (!mediaEnabled(cfg) || refs == null) {
 			return List.of();
 		}
 		int rowH = MediaLayout.entryHeight(lineSpacing);
 		int maxW = Math.max(16, Math.min(cfg.displayWidth(), maxWidth));
 		List<MediaRow> out = new ArrayList<>();
 		for (MediaRef ref : refs) {
+			if (failure(ref) != null) {
+				continue;
+			}
 			MediaGeometry.Box box = MediaGeometry.Box.fit(ref.width(), ref.height(), maxW, cfg.displayHeight());
 			if (cfg.clickToReveal && !isRevealed(ref)) {
 				out.add(new MediaRow(ref, box.width(), box.height(), 0, rowH, true));

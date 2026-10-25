@@ -125,6 +125,19 @@ class ClientMediaConfigTest {
 	}
 
 	@Test
+	void maxDownloadMiB() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.maxDownloadBytes = 1024 * 1024;
+		assertEquals(1, c.maxDownloadMiB());
+		c.maxDownloadBytes = 8 * 1024 * 1024;
+		assertEquals(8, c.maxDownloadMiB());
+		c.maxDownloadBytes = 99 * 1024 * 1024;
+		assertEquals(32, c.maxDownloadMiB());
+		c.maxDownloadBytes = 1;
+		assertEquals(1, c.maxDownloadMiB());
+	}
+
+	@Test
 	void budgetClamp() {
 		ClientMediaConfig c = new ClientMediaConfig();
 		c.memoryBudgetMiB = 1;

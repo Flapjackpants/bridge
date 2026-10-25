@@ -9,9 +9,12 @@
 	"discordbridge.config.mode.animated": "Animated",
 	"discordbridge.config.maxHeight": "Max height: %s px",
 	"discordbridge.config.memoryBudget": "Memory budget: %s MiB",
+	"discordbridge.config.maxDownload": "Max download: %s MiB",
 	"discordbridge.config.clickToReveal": "Click to reveal",
 	"discordbridge.config.showInChatOverlay": "Show in chat overlay",
 	"discordbridge.media.failed": "[media unavailable]",
+	"discordbridge.media.link.failed": "(epic embed fail)",
+	"discordbridge.media.link.tooLarge": "(media too large)",
 	"discordbridge.media.reveal": "[click to show media]",
 	"discordbridge.media.tooltip.open": "Click to open",
 	"discordbridge.media.tooltip.reveal": "Click to show"

@@ -45,8 +45,6 @@ File: `config/discordbridge-server.json`. The token can instead come from the en
 | `maxInboundLines` | `5` | Max lines of an inbound Discord message. |
 | `richMedia` | `true` | Send rich messages to modded clients that completed the handshake. |
 | `mediaAllowedHosts` | Discord CDN/proxy, Tenor, Giphy, Imgur, Klipy | HTTPS hosts media URLs may use; `*.` prefix matches subdomains. File-only. |
-| `mediaMaxBytes` | `8388608` | Larger attachments are not sent as media. File-only. |
-| `mediaMaxDimension` | `8192` | Max pixels per side. File-only. |
 | `mediaMaxItems` | `4` | Media items per message (hard cap 16). File-only. |
 | `mediaPreviewSize` | `256` | Longest side in pixels of proxy-resized previews. File-only. |
 
@@ -55,9 +53,9 @@ Existing server config files also keep their saved `discordPrefix`.
 
 ## Modded clients
 
-Clients with the mod get rich messages (author, avatar, media list) after a `discordbridge:hello` v1 handshake.
+Clients with the mod get rich messages (author, avatar, media list) after a `discordbridge:hello` v2 handshake.
 Vanilla clients, and everyone when `richMedia` is `false`, see the same chat line as before.
-Media URLs are limited to `mediaAllowedHosts`; the server never fetches media itself.
+Media URLs are limited to `mediaAllowedHosts`; the server never fetches media itself. Download size limits are set per client (`maxDownloadBytes`). When media shows inline, its link is hidden; failed or oversized media keep the link with `(epic embed fail)` or `(media too large)`.
 The client prefix and color below apply only when the server has `richMedia` on.
 
 ### Client settings
@@ -69,8 +67,9 @@ File: `config/discordbridge-client.json`. Editable in-game through [Mod Menu](ht
 | `mode` | `ANIMATED` | `OFF` (no media fetched, text only), `STATIC` (first frame only), `ANIMATED`. |
 | `maxDisplayHeight` | `90` | Max media height in GUI pixels, 16–240. |
 | `memoryBudgetMiB` | `96` | Decoded-media memory budget, 8–1024. |
+| `maxDownloadBytes` | `8388608` | Largest media file downloaded, 64 KiB–32 MiB (slider: 1–32 MiB). |
 | `clickToReveal` | `false` | Hide media until clicked. |
-| `showInChatOverlay` | `true` | Show media in the HUD chat, not only the open chat screen. |
+| `showInChatOverlay` | `true` | `false` turns media off: nothing is fetched and links stay as plain text. |
 | `discordPrefix` | `[Discord]` | Prefix before Discord messages; blank hides it. |
 | `discordColor` | `#5865F2` | Prefix color (`#RRGGBB`). |
 

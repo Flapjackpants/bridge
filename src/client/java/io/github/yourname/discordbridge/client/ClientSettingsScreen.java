@@ -63,6 +63,9 @@ public final class ClientSettingsScreen extends Screen {
 		col.addChild(new ValueSlider("discordbridge.config.memoryBudget", (working.memoryBudgetMiB() - 8) / 1016.0,
 				working::memoryBudgetMiB,
 				v -> working.memoryBudgetMiB = (int) Math.clamp(8L * Math.round((8 + v * 1016) / 8.0), 8, 1024)));
+		col.addChild(new ValueSlider("discordbridge.config.maxDownload", (working.maxDownloadMiB() - 1) / 31.0,
+				working::maxDownloadMiB,
+				v -> working.maxDownloadBytes = (1 + (int) Math.round(v * 31)) * 1024 * 1024));
 
 		col.addChild(Button.builder(toggleLabel("discordbridge.config.clickToReveal", working.clickToReveal), b -> {
 			working.clickToReveal = !working.clickToReveal;

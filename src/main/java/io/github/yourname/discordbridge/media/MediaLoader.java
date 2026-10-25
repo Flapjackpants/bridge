@@ -19,6 +19,8 @@ public final class MediaLoader {
 	/** delaysMs.length == sheet.frames(); argb.length == sheet.width()*sheet.height(). */
 	public record Result(MediaGeometry.Sheet sheet, int[] argb, int[] delaysMs) {}
 
+	public record Outcome(@Nullable Result result, boolean tooLarge) {}
+
 	private final Fetcher fetcher;
 	private final @Nullable DiskCache disk;
 	private final MediaDecoder.Limits limits;
@@ -34,22 +36,30 @@ public final class MediaLoader {
 	 * Throws InterruptedIOException only when the fetcher does (stop immediately). Never throws anything else.
 	 */
 	public @Nullable Result load(List<MediaFetchPlan.Source> sources) throws InterruptedIOException {
+		return loadOutcome(sources).result();
+	}
+
+	/** Like load, but also reports whether a failure was because the media exceeded a size limit. */
+	public Outcome loadOutcome(List<MediaFetchPlan.Source> sources) throws InterruptedIOException {
+		boolean tooLarge = false;
 		for (MediaFetchPlan.Source s : sources) {
 			try {
 				Result r = loadOne(s);
 				if (r != null) {
-					return r;
+					return new Outcome(r, false);
 				}
 			} catch (InterruptedIOException e) {
 				throw e;
+			} catch (MediaTooLargeException e) {
+				tooLarge = true;
 			} catch (RuntimeException e) {
 				LOG.debug("media load failed for {}: {}", s.url(), e.toString());
 			}
 		}
-		return null;
+		return new Outcome(null, tooLarge);
 	}
 
-	private @Nullable Result loadOne(MediaFetchPlan.Source s) throws InterruptedIOException {
+	private @Nullable Result loadOne(MediaFetchPlan.Source s) throws InterruptedIOException, MediaTooLargeException {
 		byte[] data = disk == null ? null : disk.get(s.cacheKey());
 		boolean fromDisk = data != null;
 		if (data == null) {
@@ -62,6 +72,9 @@ public final class MediaLoader {
 		try {
 			frames = MediaDecoder.decode(data, s.animated(), limits);
 		} catch (IOException e) {
+			if (e instanceof MediaTooLargeException tl) {
+				throw tl;
+			}
 			if (!fromDisk) {
 				LOG.debug("media decode failed for {}: {}", s.url(), e.getMessage());
 				return null;
@@ -73,6 +86,9 @@ public final class MediaLoader {
 			try {
 				frames = MediaDecoder.decode(data, s.animated(), limits);
 			} catch (IOException e2) {
+				if (e2 instanceof MediaTooLargeException tl) {
+					throw tl;
+				}
 				LOG.debug("media decode failed for {}: {}", s.url(), e2.getMessage());
 				return null;
 			}
@@ -87,11 +103,15 @@ public final class MediaLoader {
 		return new Result(sheet, MediaLayout.packSheet(frames, sheet), Arrays.copyOf(frames.delaysMs(), sheet.frames()));
 	}
 
-	private byte @Nullable [] fetchAndStore(MediaFetchPlan.Source s) throws InterruptedIOException {
+	private byte @Nullable [] fetchAndStore(MediaFetchPlan.Source s)
+			throws InterruptedIOException, MediaTooLargeException {
 		byte[] data;
 		try {
 			data = fetcher.fetch(s.url());
 		} catch (InterruptedIOException e) {
+			throw e;
+		} catch (MediaTooLargeException e) {
+			LOG.debug("media fetch failed for {}: {}", s.url(), e.getMessage());
 			throw e;
 		} catch (IOException | RuntimeException e) {
 			LOG.debug("media fetch failed for {}: {}", s.url(), e.getMessage());
