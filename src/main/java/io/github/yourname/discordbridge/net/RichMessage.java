@@ -13,7 +13,7 @@ import net.minecraft.network.VarInt;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
 
-/** Wire format is documented in the Spec 2 handoff; Spec 3 depends on it. */
+/** Wire format is documented in the Spec 2 handoff; v2 appends one linkUrl string per media entry after the media list. */
 public record RichMessage(String authorDisplayName, String authorUsername, @Nullable String avatarUrl,
 		String content, @Nullable String replyToName, String jumpUrl,
 		List<String> stickerNames, List<MediaRef> media) {
@@ -67,6 +67,9 @@ public record RichMessage(String authorDisplayName, String authorUsername, @Null
 			writeStr(buf, r.contentType(), MAX_TYPE);
 			writeStr(buf, r.fileName(), MAX_NAME);
 		}
+		for (int i = 0; i < media; i++) {
+			writeStr(buf, v.media.get(i).linkUrl(), MAX_URL);
+		}
 	}
 
 	private static RichMessage decode(ByteBuf buf) {
@@ -104,6 +107,14 @@ public record RichMessage(String authorDisplayName, String authorUsername, @Null
 			String type = readStr(buf, MAX_TYPE);
 			String name = readStr(buf, MAX_NAME);
 			media.add(new MediaRef(kinds[ordinal], url, proxy, w, h, size, type, name));
+		}
+		if (buf.isReadable()) {
+			for (int i = 0; i < mediaCount; i++) {
+				String link = readStr(buf, MAX_URL);
+				MediaRef r = media.get(i);
+				media.set(i, new MediaRef(r.kind(), r.url(), r.proxyUrl(), r.width(), r.height(), r.sizeBytes(),
+						r.contentType(), r.fileName(), link));
+			}
 		}
 		return new RichMessage(display == null ? "" : display, username == null ? "" : username, avatar,
 				content == null ? "" : content, replyTo, jump == null ? "" : jump,

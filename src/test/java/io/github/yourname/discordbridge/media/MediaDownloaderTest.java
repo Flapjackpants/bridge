@@ -30,6 +30,7 @@ class MediaDownloaderTest {
 		assertEquals(10, MediaDownloader.readLimited(new ByteArrayInputStream(ten), 10).length);
 		IOException e = assertThrows(IOException.class,
 				() -> MediaDownloader.readLimited(new ByteArrayInputStream(new byte[11]), 10));
+		assertInstanceOf(MediaTooLargeException.class, e);
 		assertEquals("too large", e.getMessage());
 	}
 

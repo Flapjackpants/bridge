@@ -82,7 +82,7 @@ public final class MediaDecoder {
 		int w = reader.getWidth(0);
 		int h = reader.getHeight(0);
 		if (w > limits.maxSourceSide() || h > limits.maxSourceSide()) {
-			throw new IOException("source too large");
+			throw new MediaTooLargeException("source too large");
 		}
 		BufferedImage src = reader.read(0);
 		MediaGeometry.Box box = MediaGeometry.Box.fit(w, h, limits.maxSide(), limits.maxSide());
@@ -148,7 +148,7 @@ public final class MediaDecoder {
 	private static Frames compose(ImageReader reader, int lw, int lh, int n, Placements placements, Limits limits)
 			throws IOException {
 		if (lw > limits.maxSourceSide() || lh > limits.maxSourceSide()) {
-			throw new IOException("source too large");
+			throw new MediaTooLargeException("source too large");
 		}
 		MediaGeometry.Box box = MediaGeometry.Box.fit(lw, lh, limits.maxSide(), limits.maxSide());
 		int bw = box.width();

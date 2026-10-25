@@ -24,7 +24,7 @@ public final class ClientMediaConfig {
 
 	public MediaMode mode = MediaMode.ANIMATED;    // OFF: no fetching, text fallback only
 	public boolean clickToReveal = false;          // media hidden until the player clicks it
-	public boolean showInChatOverlay = true;       // render media in the HUD chat, not only in the open chat screen
+	public boolean showInChatOverlay = true;       // false: no media at all (nothing fetched, links stay as plain text)
 	public static final String DEFAULT_DISCORD_PREFIX = "[Discord]";
 	public static final String DEFAULT_DISCORD_COLOR = "#5865F2";
 	public String discordPrefix = DEFAULT_DISCORD_PREFIX; // shown before Discord messages; blank hides it
@@ -131,6 +131,11 @@ public final class ClientMediaConfig {
 
 	public int memoryBudgetMiB() {
 		return Math.clamp(memoryBudgetMiB, 8, 1024);
+	}
+
+	/** policy().maxBytes() in whole MiB, floored, minimum 1 (range 1..32). */
+	public int maxDownloadMiB() {
+		return Math.max(1, (int) (Math.clamp(maxDownloadBytes, 64 * 1024, 32 * 1024 * 1024) / (1024 * 1024)));
 	}
 
 	public ClientMediaConfig copy() {

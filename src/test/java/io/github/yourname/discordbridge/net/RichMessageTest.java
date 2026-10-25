@@ -38,6 +38,31 @@ class RichMessageTest {
 	}
 
 	@Test
+	void linkRoundTrip() {
+		RichMessage f = full();
+		List<MediaRef> linked = f.media().stream().map(r -> new MediaRef(r.kind(), r.url(), r.proxyUrl(), r.width(),
+				r.height(), r.sizeBytes(), r.contentType(), r.fileName(), "https://tenor.com/view/x")).toList();
+		RichMessage m = new RichMessage(f.authorDisplayName(), f.authorUsername(), f.avatarUrl(), f.content(),
+				f.replyToName(), f.jumpUrl(), f.stickerNames(), linked);
+		ByteBuf buf = Unpooled.buffer();
+		RichMessage.STREAM_CODEC.encode(buf, m);
+		RichMessage back = RichMessage.STREAM_CODEC.decode(buf);
+		assertEquals(m, back);
+		assertEquals("https://tenor.com/view/x", back.media().get(1).linkUrl());
+		assertEquals(0, buf.readableBytes());
+	}
+
+	@Test
+	void decodesWithoutTrailer() {
+		ByteBuf buf = Unpooled.buffer();
+		RichMessage.STREAM_CODEC.encode(buf, full());
+		buf.writerIndex(buf.writerIndex() - 2);
+		RichMessage back = RichMessage.STREAM_CODEC.decode(buf);
+		assertEquals(full(), back);
+		assertNull(back.media().get(0).linkUrl());
+	}
+
+	@Test
 	void nullsRoundTrip() {
 		RichMessage m = new RichMessage("a", "b", null, "c", null, "", List.of(),
 				List.of(new MediaRef(MediaRef.Kind.STATIC, null, null, 0, 0, -1, "", "")));

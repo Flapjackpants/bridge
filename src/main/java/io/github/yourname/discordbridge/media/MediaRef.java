@@ -3,7 +3,8 @@ package io.github.yourname.discordbridge.media;
 import org.jspecify.annotations.Nullable;
 
 public record MediaRef(Kind kind, @Nullable String url, @Nullable String proxyUrl,
-		int width, int height, long sizeBytes, String contentType, String fileName) {
+		int width, int height, long sizeBytes, String contentType, String fileName,
+		@Nullable String linkUrl) {
 	/** Wire format is the ordinal: append-only; reordering requires a protocol VERSION bump. */
 	public enum Kind { STATIC, GIF, GIFV, VIDEO }
 
@@ -13,5 +14,11 @@ public record MediaRef(Kind kind, @Nullable String url, @Nullable String proxyUr
 		sizeBytes = sizeBytes <= 0 ? -1 : sizeBytes;
 		contentType = contentType == null ? "" : contentType;
 		fileName = fileName == null ? "" : fileName;
+		linkUrl = linkUrl == null || linkUrl.isBlank() || linkUrl.length() > MediaPipeline.MAX_URL_LENGTH ? null : linkUrl;
+	}
+
+	public MediaRef(Kind kind, @Nullable String url, @Nullable String proxyUrl, int width, int height,
+			long sizeBytes, String contentType, String fileName) {
+		this(kind, url, proxyUrl, width, height, sizeBytes, contentType, fileName, null);
 	}
 }

@@ -165,7 +165,7 @@ class MediaDecoderTest {
 	@Test
 	void rejectsHugeSource() throws Exception {
 		byte[] big = png(3000, 10);
-		assertThrows(IOException.class, () -> MediaDecoder.decode(big, true, LIMITS));
+		assertThrows(MediaTooLargeException.class, () -> MediaDecoder.decode(big, true, LIMITS));
 	}
 
 	@Test

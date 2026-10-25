@@ -221,7 +221,7 @@ public final class DiscordBridge {
 		for (Message.Attachment a : m.getAttachments()) {
 			out.add(new MediaPipeline.Candidate(MediaPipeline.Source.ATTACHMENT, a.getUrl(), a.getProxyUrl(),
 					a.getWidth(), a.getHeight(), a.getSize(), a.getContentType(), a.getFileName(),
-					null, null, 0, 0, null));
+					null, null, 0, 0, null, a.getUrl()));
 		}
 		for (MessageEmbed e : m.getEmbeds()) {
 			MessageEmbed.Thumbnail thumb = e.getThumbnail();
@@ -232,11 +232,11 @@ public final class DiscordBridge {
 					if (t != null) {
 						out.add(new MediaPipeline.Candidate(MediaPipeline.Source.EMBED_IMAGE, t.getUrl(),
 								t.getProxyUrl(), t.getWidth(), t.getHeight(), -1, null, null,
-								null, null, 0, 0, null));
+								null, null, 0, 0, null, e.getUrl()));
 					} else if (img != null) {
 						out.add(new MediaPipeline.Candidate(MediaPipeline.Source.EMBED_IMAGE, img.getUrl(),
 								img.getProxyUrl(), img.getWidth(), img.getHeight(), -1, null, null,
-								null, null, 0, 0, null));
+								null, null, 0, 0, null, e.getUrl()));
 					}
 				}
 				case GIFV, VIDEO -> {
@@ -251,7 +251,7 @@ public final class DiscordBridge {
 							v == null ? null : v.getUrl(), null,
 							v == null ? 0 : v.getWidth(), v == null ? 0 : v.getHeight(), -1, null, null,
 							thumb == null ? null : thumb.getUrl(), thumb == null ? null : thumb.getProxyUrl(),
-							thumb == null ? 0 : thumb.getWidth(), thumb == null ? 0 : thumb.getHeight(), null));
+							thumb == null ? 0 : thumb.getWidth(), thumb == null ? 0 : thumb.getHeight(), null, e.getUrl()));
 				}
 				default -> { }
 			}

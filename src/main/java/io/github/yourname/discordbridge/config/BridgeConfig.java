@@ -43,8 +43,6 @@ public final class BridgeConfig {
 	public int maxInboundLines = 5;
 	public boolean richMedia = true;           // send discordbridge:message to clients that completed the hello handshake
 	public List<String> mediaAllowedHosts = new ArrayList<>(DEFAULT_MEDIA_HOSTS);
-	public int mediaMaxBytes = 8 * 1024 * 1024; // bytes; larger attachments are not sent as media
-	public int mediaMaxDimension = 8192;       // px per side
 	public int mediaMaxItems = 4;              // per message, hard cap 16
 	public int mediaPreviewSize = 256;         // px, longest side of proxy resize
 

@@ -59,7 +59,7 @@ public final class MediaDownloader {
 				}
 				long len = res.headers().firstValueAsLong("content-length").orElse(-1);
 				if (len > policy.maxBytes()) {
-					throw new IOException("too large");
+					throw new MediaTooLargeException("too large");
 				}
 				return readLimited(body, policy.maxBytes());
 			}
@@ -87,7 +87,7 @@ public final class MediaDownloader {
 		while ((n = in.read(buf)) != -1) {
 			total += n;
 			if (total > max) {
-				throw new IOException("too large");
+				throw new MediaTooLargeException("too large");
 			}
 			out.write(buf, 0, n);
 		}

@@ -94,13 +94,50 @@ class MediaPipelineTest {
 	}
 
 	@Test
-	void oversizeSkipped() {
-		assertTrue(run(att(CDN + "a.png", null, 10, 10, 9L * 1024 * 1024, "image/png", "a.png")).isEmpty());
+	void oversizeBytesForwarded() {
+		List<MediaRef> out = run(att(CDN + "a.png", null, 10, 10, 9L * 1024 * 1024, "image/png", "a.png"));
+		assertEquals(1, out.size());
+		assertEquals(CDN + "a.png", out.get(0).url());
 	}
 
 	@Test
-	void oversizeDimensionSkipped() {
-		assertTrue(run(att(CDN + "a.png", null, 9000, 10, 10, "image/png", "a.png")).isEmpty());
+	void oversizeDimensionForwarded() {
+		List<MediaRef> out = run(att(CDN + "a.png", null, 9000, 10, 10, "image/png", "a.png"));
+		assertEquals(1, out.size());
+		assertEquals(9000, out.get(0).width());
+	}
+
+	private static Candidate attLink(String ct, String name, String link) {
+		return new Candidate(Source.ATTACHMENT, CDN + name, null, 10, 10, 10, ct, name, null, null, 0, 0, null, link);
+	}
+
+	@Test
+	void attachmentCarriesLinkUrl() {
+		String link = CDN + "a.png?ex=1";
+		assertEquals(link, run(attLink("image/png", "a.png", link)).get(0).linkUrl());
+	}
+
+	@Test
+	void embedCarriesLinkUrl() {
+		Candidate t = tenor();
+		String link = "https://tenor.com/view/cat-gif-1";
+		Candidate c = new Candidate(t.source(), t.url(), t.proxyUrl(), t.width(), t.height(), t.sizeBytes(),
+				t.contentType(), t.fileName(), t.thumbUrl(), t.thumbProxyUrl(), t.thumbWidth(), t.thumbHeight(),
+				t.thumbContentType(), link);
+		assertEquals(link, run(c).get(0).linkUrl());
+	}
+
+	@Test
+	void videoNeverCarriesLink() {
+		MediaRef r = run(attLink("video/mp4", "v.mp4", "https://example.com/v")).get(0);
+		assertEquals(MediaRef.Kind.VIDEO, r.kind());
+		assertNull(r.linkUrl());
+	}
+
+	@Test
+	void badLinkDropped() {
+		assertNull(run(attLink("image/png", "a.png", "https://example.com/" + "a".repeat(2029))).get(0).linkUrl());
+		assertNull(run(attLink("image/png", "a.png", "  ")).get(0).linkUrl());
 	}
 
 	@Test
@@ -216,8 +253,6 @@ class MediaPipelineTest {
 		c.mediaAllowedHosts = Arrays.asList(" CDN.Discordapp.com ", "", "  ", null);
 		assertEquals(List.of("cdn.discordapp.com"), Policy.from(c).allowedHosts());
 		c.mediaMaxItems = 99;
-		c.mediaMaxBytes = 0;
-		c.mediaMaxDimension = -1;
 		c.mediaPreviewSize = 1;
 		Policy p = Policy.from(c);
 		assertEquals(16, p.maxItems());
