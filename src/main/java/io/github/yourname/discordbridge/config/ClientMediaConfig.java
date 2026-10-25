@@ -6,6 +6,7 @@ import com.google.gson.JsonParseException;
 import io.github.yourname.discordbridge.media.MediaDecoder;
 import io.github.yourname.discordbridge.media.MediaFetchPlan;
 import io.github.yourname.discordbridge.media.MediaRef;
+import io.github.yourname.discordbridge.text.TextSanitizer;
 import io.github.yourname.discordbridge.media.MediaPipeline;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -24,6 +25,10 @@ public final class ClientMediaConfig {
 	public MediaMode mode = MediaMode.ANIMATED;    // OFF: no fetching, text fallback only
 	public boolean clickToReveal = false;          // media hidden until the player clicks it
 	public boolean showInChatOverlay = true;       // render media in the HUD chat, not only in the open chat screen
+	public static final String DEFAULT_DISCORD_PREFIX = "[Discord]";
+	public static final String DEFAULT_DISCORD_COLOR = "#5865F2";
+	public String discordPrefix = DEFAULT_DISCORD_PREFIX; // shown before Discord messages; blank hides it
+	public String discordColor = DEFAULT_DISCORD_COLOR;   // #RRGGBB; invalid falls back to default
 	public List<String> allowedHosts = new ArrayList<>(BridgeConfig.DEFAULT_MEDIA_HOSTS);
 	public int maxDownloadBytes = 8 * 1024 * 1024; // clamp 64 KiB .. 32 MiB
 	public int downloadThreads = 2;                // clamp 1..2
@@ -103,6 +108,21 @@ public final class ClientMediaConfig {
 	public MediaDecoder.Limits limits() {
 		return new MediaDecoder.Limits(Math.clamp(decodeMaxSide, 16, 512),
 				mode() == MediaMode.STATIC ? 1 : Math.clamp(maxFrames, 1, 256), 2048, 500, 4_194_304L, 4096);
+	}
+
+	/** The prefix to show, with a trailing space; empty when the player blanked it. */
+	public String prefixText() {
+		String s = discordPrefix == null ? DEFAULT_DISCORD_PREFIX
+				: TextSanitizer.stripLegacyFormatting(discordPrefix).strip();
+		if (s.length() > 32) {
+			int end = Character.isHighSurrogate(s.charAt(31)) ? 31 : 32;
+			s = s.substring(0, end);
+		}
+		return s.isEmpty() ? "" : s + " ";
+	}
+
+	public int prefixRgb() {
+		return BridgeConfig.parseHexColor(discordColor, 0x5865F2);
 	}
 
 	public MediaMode mode() {

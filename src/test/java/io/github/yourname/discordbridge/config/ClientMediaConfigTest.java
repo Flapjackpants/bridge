@@ -134,6 +134,54 @@ class ClientMediaConfigTest {
 	}
 
 	@Test
+	void prefixDefaults() {
+		assertEquals("[Discord] ", new ClientMediaConfig().prefixText());
+	}
+
+	@Test
+	void prefixBlankAndNull() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.discordPrefix = null;
+		assertEquals("[Discord] ", c.prefixText());
+		c.discordPrefix = "   ";
+		assertEquals("", c.prefixText());
+	}
+
+	@Test
+	void prefixSanitized() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.discordPrefix = "§c[DC]  ";
+		assertEquals("[DC] ", c.prefixText());
+	}
+
+	@Test
+	void prefixCapped() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.discordPrefix = "x".repeat(40);
+		assertEquals("x".repeat(32) + " ", c.prefixText());
+	}
+
+	@Test
+	void prefixColor() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.discordColor = "#FF0000";
+		assertEquals(0xFF0000, c.prefixRgb());
+		c.discordColor = "zzz";
+		assertEquals(0x5865F2, c.prefixRgb());
+		c.discordColor = null;
+		assertEquals(0x5865F2, c.prefixRgb());
+	}
+
+	@Test
+	void oldFileGetsPrefixDefaults() throws Exception {
+		Path f = dir.resolve("c.json");
+		Files.writeString(f, "{\"mode\":\"STATIC\"}");
+		ClientMediaConfig c = ClientMediaConfig.load(f);
+		assertEquals("[Discord] ", c.prefixText());
+		assertEquals(0x5865F2, c.prefixRgb());
+	}
+
+	@Test
 	void modeCycles() {
 		assertEquals(MediaMode.STATIC, MediaMode.OFF.next());
 		assertEquals(MediaMode.ANIMATED, MediaMode.STATIC.next());

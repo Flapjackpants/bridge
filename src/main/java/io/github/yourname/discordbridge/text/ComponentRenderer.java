@@ -38,4 +38,21 @@ public final class ComponentRenderer {
 		}
 		return root;
 	}
+
+	public static Component withPrefix(Component rendered, String prefix, int rgb) {
+		try {
+			List<Component> kids = rendered.getSiblings();
+			if (kids.isEmpty()) {
+				return rendered;
+			}
+			MutableComponent out = rendered.plainCopy().setStyle(rendered.getStyle());
+			out.append(Component.literal(prefix).withStyle(kids.get(0).getStyle().withColor(rgb)));
+			for (int i = 1; i < kids.size(); i++) {
+				out.append(kids.get(i));
+			}
+			return out;
+		} catch (RuntimeException e) {
+			return rendered;
+		}
+	}
 }

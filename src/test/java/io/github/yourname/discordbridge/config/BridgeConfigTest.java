@@ -15,7 +15,7 @@ class BridgeConfigTest {
 		Path f = dir.resolve("sub/cfg.json");
 		BridgeConfig c = BridgeConfig.load(f);
 		assertTrue(Files.exists(f));
-		assertEquals("[D] ", c.discordPrefix);
+		assertEquals("[Discord] ", c.discordPrefix);
 	}
 
 	@Test

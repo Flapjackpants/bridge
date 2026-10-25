@@ -26,9 +26,25 @@ public final class TextSanitizer {
 	}
 
 	public static String forDiscord(String mcText) {
+		return forDiscord(mcText, DISCORD_LIMIT);
+	}
+
+	private static String forDiscord(String mcText, int limit) {
 		String s = MarkdownSanitizer.escape(stripLegacyFormatting(mcText));
 		s = s.replace("@everyone", "@​everyone").replace("@here", "@​here");
-		return truncate(s, DISCORD_LIMIT);
+		return truncate(s, limit);
+	}
+
+	public static String forDiscordEvent(String mcText, Emphasis emphasis) {
+		if (mcText == null) {
+			return "";
+		}
+		String stripped = stripLegacyFormatting(mcText).strip();
+		if (stripped.isBlank()) {
+			return "";
+		}
+		String marker = emphasis.marker();
+		return marker + forDiscord(stripped, DISCORD_LIMIT - 2 * marker.length()) + marker;
 	}
 
 	public static String forMinecraft(String text, int maxLen, int maxLines) {

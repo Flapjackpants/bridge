@@ -32,7 +32,7 @@ public final class BridgeConfig {
 	public boolean enableInSingleplayer = false;
 	public boolean useWebhook = true;
 	public String avatarUrlTemplate = "https://mc-heads.net/avatar/{uuid}/64"; // {uuid} and {name} placeholders
-	public String discordPrefix = "[D] ";
+	public String discordPrefix = "[Discord] ";
 	public String prefixColor = "#5865F2";
 	public String nameColor = "#7289DA";
 	public String messageColor = "#FFFFFF";

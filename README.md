@@ -34,7 +34,7 @@ File: `config/discordbridge-server.json`. The token can instead come from the en
 | `enableInSingleplayer` | `false` | Run the bridge in singleplayer worlds. |
 | `useWebhook` | `true` | Send chat through a webhook named `DiscordBridge`. |
 | `avatarUrlTemplate` | `https://mc-heads.net/avatar/{uuid}/64` | Avatar URL; `{uuid}` and `{name}` are replaced. |
-| `discordPrefix` | `[D] ` | Prefix on Discord messages shown in-game. |
+| `discordPrefix` | `[Discord] ` | Prefix on Discord messages shown to vanilla clients (modded clients use their own setting). |
 | `prefixColor` | `#5865F2` | Prefix color. |
 | `nameColor` | `#7289DA` | Author name color. |
 | `messageColor` | `#FFFFFF` | Message text color. |
@@ -51,12 +51,14 @@ File: `config/discordbridge-server.json`. The token can instead come from the en
 | `mediaPreviewSize` | `256` | Longest side in pixels of proxy-resized previews. File-only. |
 
 Existing config files keep their saved `mediaAllowedHosts`; delete the key to pick up new defaults.
+Existing server config files also keep their saved `discordPrefix`.
 
 ## Modded clients
 
 Clients with the mod get rich messages (author, avatar, media list) after a `discordbridge:hello` v1 handshake.
 Vanilla clients, and everyone when `richMedia` is `false`, see the same chat line as before.
 Media URLs are limited to `mediaAllowedHosts`; the server never fetches media itself.
+The client prefix and color below apply only when the server has `richMedia` on.
 
 ### Client settings
 
@@ -69,6 +71,8 @@ File: `config/discordbridge-client.json`. Editable in-game through [Mod Menu](ht
 | `memoryBudgetMiB` | `96` | Decoded-media memory budget, 8–1024. |
 | `clickToReveal` | `false` | Hide media until clicked. |
 | `showInChatOverlay` | `true` | Show media in the HUD chat, not only the open chat screen. |
+| `discordPrefix` | `[Discord]` | Prefix before Discord messages; blank hides it. |
+| `discordColor` | `#5865F2` | Prefix color (`#RRGGBB`). |
 
 Other keys in the file are file-only.
 

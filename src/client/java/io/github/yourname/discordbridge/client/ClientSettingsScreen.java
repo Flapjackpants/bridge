@@ -1,10 +1,13 @@
 package io.github.yourname.discordbridge.client;
 
+import io.github.yourname.discordbridge.config.BridgeConfig;
 import io.github.yourname.discordbridge.config.ClientMediaConfig;
 import java.util.Locale;
 import java.util.function.IntSupplier;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.StringWidget;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
@@ -26,6 +29,27 @@ public final class ClientSettingsScreen extends Screen {
 	protected void init() {
 		layout.addTitleHeader(this.title, this.font);
 		LinearLayout col = layout.addToContents(LinearLayout.vertical().spacing(4));
+
+		LinearLayout prefixRow = col.addChild(LinearLayout.horizontal().spacing(4));
+		Component prefixLabel = Component.translatable("discordbridge.config.prefix");
+		prefixRow.addChild(new StringWidget(60, 20, prefixLabel, this.font));
+		EditBox prefixBox = prefixRow.addChild(new EditBox(this.font, 136, 20, prefixLabel));
+		prefixBox.setMaxLength(32);
+		prefixBox.setValue(working.discordPrefix == null ? "" : working.discordPrefix);
+		prefixBox.setResponder(v -> working.discordPrefix = v);
+
+		LinearLayout colorRow = col.addChild(LinearLayout.horizontal().spacing(4));
+		Component colorLabel = Component.translatable("discordbridge.config.color");
+		colorRow.addChild(new StringWidget(60, 20, colorLabel, this.font));
+		EditBox colorBox = colorRow.addChild(new EditBox(this.font, 136, 20, colorLabel));
+		colorBox.setMaxLength(7);
+		colorBox.setHint(Component.translatable("discordbridge.config.color.hint"));
+		colorBox.setValue(working.discordColor == null ? "" : working.discordColor);
+		colorBox.setTextColor(colorTextColor(colorBox.getValue()));
+		colorBox.setResponder(v -> {
+			working.discordColor = v;
+			colorBox.setTextColor(colorTextColor(v));
+		});
 
 		col.addChild(Button.builder(modeLabel(), b -> {
 			working.mode = working.mode().next();
@@ -62,8 +86,15 @@ public final class ClientSettingsScreen extends Screen {
 
 	@Override
 	public void onClose() {
+		working.discordColor = BridgeConfig.parseHexColor(working.discordColor, -1) < 0
+				? ClientMediaConfig.DEFAULT_DISCORD_COLOR
+				: String.format("#%06X", BridgeConfig.parseHexColor(working.discordColor, 0));
 		ClientSettings.apply(working);
 		this.minecraft.setScreenAndShow(parent);
+	}
+
+	private static int colorTextColor(String hex) {
+		return BridgeConfig.parseHexColor(hex, -1) < 0 ? 0xFFFF5555 : 0xFF000000 | BridgeConfig.parseHexColor(hex, 0);
 	}
 
 	private Component modeLabel() {

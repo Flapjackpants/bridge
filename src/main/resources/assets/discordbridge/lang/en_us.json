@@ -1,5 +1,8 @@
 {
 	"discordbridge.config.title": "Discord Bridge",
+	"discordbridge.config.prefix": "Prefix",
+	"discordbridge.config.color": "Prefix color",
+	"discordbridge.config.color.hint": "#RRGGBB",
 	"discordbridge.config.mode": "Media",
 	"discordbridge.config.mode.off": "Off",
 	"discordbridge.config.mode.static": "Static",

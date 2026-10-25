@@ -33,7 +33,14 @@ class InboundFormatterTest {
 		List<Segment> s = InboundFormatter.format(msg("hi", "Bob", List.of(), List.of()), cfg);
 		assertEquals(List.of(Role.PREFIX, Role.REPLY, Role.NAME, Role.BODY), s.stream().map(Segment::role).toList());
 		assertEquals("↪ Bob ", s.get(1).text());
-		assertEquals(": hi", s.get(3).text());
+		assertEquals(" hi", s.get(3).text());
+	}
+
+	@Test
+	void defaultPrefix() {
+		Segment first = InboundFormatter.format(msg("hi", null, List.of(), List.of()), cfg).get(0);
+		assertEquals(Role.PREFIX, first.role());
+		assertEquals("[Discord] ", first.text());
 	}
 
 	@Test
@@ -47,7 +54,7 @@ class InboundFormatterTest {
 	void nameAttribution() {
 		Segment name = InboundFormatter.format(msg("hi", null, List.of(), List.of()), cfg).get(1);
 		assertEquals(Role.NAME, name.role());
-		assertEquals("Alice", name.text());
+		assertEquals("<Alice>", name.text());
 		assertEquals("Sent from Discord by @alice_u", name.hoverText());
 		assertEquals("https://discord.com/channels/1/2/3", name.clickUrl());
 	}
@@ -65,7 +72,7 @@ class InboundFormatterTest {
 	void stripsLegacyFromNames() {
 		InboundMessage m = new InboundMessage("§cAl", "u", "hi", "§aBo", List.of(), List.of(), "j");
 		List<Segment> s = InboundFormatter.format(m, cfg);
-		assertEquals("Al", s.get(2).text());
+		assertEquals("<Al>", s.get(2).text());
 		assertEquals("↪ Bo ", s.get(1).text());
 	}
 }

@@ -5,6 +5,7 @@ import io.github.yourname.discordbridge.config.BridgeConfig;
 import io.github.yourname.discordbridge.discord.DiscordBridge;
 import io.github.yourname.discordbridge.net.BridgeNetworking;
 import io.github.yourname.discordbridge.net.BridgeProtocol;
+import io.github.yourname.discordbridge.text.Emphasis;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -99,7 +100,7 @@ public final class DiscordBridgeMod implements ModInitializer {
 			}
 			DiscordBridge b = bridge;
 			if (b != null && config.relayServerStatus) {
-				b.sendEvent("✅ Server started");
+				b.sendEvent("Server started", Emphasis.BOLD_ITALIC);
 			}
 		});
 
@@ -110,7 +111,7 @@ public final class DiscordBridgeMod implements ModInitializer {
 				bridge = null;
 				if (b != null) {
 					if (config.relayServerStatus) {
-						b.sendEvent("🛑 Server stopping");
+						b.sendEvent("Server stopping", Emphasis.BOLD_ITALIC);
 					}
 					b.stop(Duration.ofSeconds(5));
 				}
@@ -133,7 +134,7 @@ public final class DiscordBridgeMod implements ModInitializer {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, s) -> {
 			DiscordBridge b = bridge;
 			if (b != null && config.relayJoinLeave) {
-				b.sendEvent("➕ " + handler.getPlayer().getName().getString() + " joined");
+				b.sendEvent(handler.getPlayer().getName().getString() + " joined", Emphasis.ITALIC);
 			}
 		});
 
@@ -141,14 +142,14 @@ public final class DiscordBridgeMod implements ModInitializer {
 			BridgeNetworking.forget(handler.getPlayer().getUUID());
 			DiscordBridge b = bridge;
 			if (b != null && config.relayJoinLeave) {
-				b.sendEvent("➖ " + handler.getPlayer().getName().getString() + " left");
+				b.sendEvent(handler.getPlayer().getName().getString() + " left", Emphasis.ITALIC);
 			}
 		});
 
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			DiscordBridge b = bridge;
 			if (b != null && config.relayDeaths && entity instanceof ServerPlayer p) {
-				b.sendEvent("💀 " + source.getLocalizedDeathMessage(p).getString());
+				b.sendEvent(source.getLocalizedDeathMessage(p).getString(), Emphasis.ITALIC);
 			}
 		});
 

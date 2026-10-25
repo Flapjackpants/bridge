@@ -30,6 +30,45 @@ class TextSanitizerTest {
 	}
 
 	@Test
+	void eventBoldItalic() {
+		assertEquals("***Server started***", TextSanitizer.forDiscordEvent("Server started", Emphasis.BOLD_ITALIC));
+	}
+
+	@Test
+	void eventEscapesInner() {
+		assertEquals("*\\*a\\* joined*", TextSanitizer.forDiscordEvent("*a* joined", Emphasis.ITALIC));
+	}
+
+	@Test
+	void eventBlank() {
+		assertEquals("", TextSanitizer.forDiscordEvent("  ", Emphasis.ITALIC));
+		assertEquals("", TextSanitizer.forDiscordEvent(null, Emphasis.ITALIC));
+	}
+
+	@Test
+	void eventTrims() {
+		assertEquals("*X died*", TextSanitizer.forDiscordEvent("  X died ", Emphasis.ITALIC));
+	}
+
+	@Test
+	void eventStripsLegacy() {
+		assertEquals("*X died*", TextSanitizer.forDiscordEvent("§cX died", Emphasis.ITALIC));
+	}
+
+	@Test
+	void eventNeutralizesMentions() {
+		assertTrue(TextSanitizer.forDiscordEvent("@everyone died", Emphasis.ITALIC).contains("@\u200Beveryone"));
+	}
+
+	@Test
+	void eventTruncatesInsideMarkers() {
+		String out = TextSanitizer.forDiscordEvent("a".repeat(2500), Emphasis.ITALIC);
+		assertTrue(out.length() <= 2000);
+		assertTrue(out.startsWith("*"));
+		assertTrue(out.endsWith("…*"));
+	}
+
+	@Test
 	void forMinecraftStripsLegacy() {
 		assertEquals("hello", TextSanitizer.forMinecraft("§4hello", 100, 5));
 	}

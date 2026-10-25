@@ -6,6 +6,7 @@ import io.github.yourname.discordbridge.net.BridgeNetworking;
 import io.github.yourname.discordbridge.net.RichMessage;
 import io.github.yourname.discordbridge.text.AttachmentRef;
 import io.github.yourname.discordbridge.text.ComponentRenderer;
+import io.github.yourname.discordbridge.text.Emphasis;
 import io.github.yourname.discordbridge.text.InboundFormatter;
 import io.github.yourname.discordbridge.text.InboundMessage;
 import io.github.yourname.discordbridge.text.Segment;
@@ -133,8 +134,8 @@ public final class DiscordBridge {
 		batcher.enqueue(new OutboundBatcher.Outbound(name, avatar, content));
 	}
 
-	public void sendEvent(String plainText) {
-		String content = TextSanitizer.forDiscord(plainText);
+	public void sendEvent(String plainText, Emphasis emphasis) {
+		String content = TextSanitizer.forDiscordEvent(plainText, emphasis);
 		if (!content.isBlank()) {
 			batcher.enqueue(new OutboundBatcher.Outbound(null, null, content));
 		}

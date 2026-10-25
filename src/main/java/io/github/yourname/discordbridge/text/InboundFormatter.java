@@ -21,10 +21,10 @@ public final class InboundFormatter {
 		if (m.replyToName() != null) {
 			out.add(new Segment("↪ " + TextSanitizer.stripLegacyFormatting(m.replyToName()) + " ", Role.REPLY, null, null));
 		}
-		out.add(new Segment(TextSanitizer.stripLegacyFormatting(m.authorDisplayName()), Role.NAME,
+		out.add(new Segment("<" + TextSanitizer.stripLegacyFormatting(m.authorDisplayName()) + ">", Role.NAME,
 				m.jumpUrl(), "Sent from Discord by @" + m.authorUsername()));
 		if (!body.isBlank()) {
-			out.add(new Segment(": " + body, Role.BODY, null, null));
+			out.add(new Segment(" " + body, Role.BODY, null, null));
 		}
 		for (AttachmentRef a : m.attachments()) {
 			out.add(new Segment(a.isImage() ? " [image]" : " [file: " + a.fileName() + "]", Role.ATTACHMENT,
