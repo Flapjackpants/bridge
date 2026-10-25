@@ -162,8 +162,8 @@ class MediaPipelineTest {
 
 	@Test
 	void gifvFallsBackToThumbnail() {
-		Candidate c = new Candidate(Source.EMBED_GIFV, "https://media.giphy.com/media/x/giphy.mp4", null, 0, 0, -1, null,
-				null, "https://media.giphy.com/media/x/giphy_s.gif",
+		Candidate c = new Candidate(Source.EMBED_GIFV, "https://example.com/x.mp4", null, 0, 0, -1, null,
+				null, "https://example.com/x_s.gif",
 				"https://images-ext-1.discordapp.net/external/y/giphy_s.gif", 200, 100, "image/png");
 		MediaRef r = run(c).get(0);
 		assertEquals(MediaRef.Kind.GIFV, r.kind());
@@ -243,5 +243,61 @@ class MediaPipelineTest {
 		assertFalse(MediaPipeline.mayGainEmbeds("see https://tenor.com/x", 0, 1));
 		assertFalse(MediaPipeline.mayGainEmbeds("no link", 0, 0));
 		assertFalse(MediaPipeline.mayGainEmbeds(null, 0, 0));
+	}
+
+	@Test
+	void gifRenditionGiphy() {
+		assertEquals("https://media.giphy.com/media/abc/giphy.gif",
+				MediaPipeline.gifRendition("https://media.giphy.com/media/abc/giphy.mp4?cid=1"));
+		assertEquals("https://media.giphy.com/media/abc/giphy.gif",
+				MediaPipeline.gifRendition("https://media.giphy.com/media/abc/giphy_s.gif"));
+		assertEquals("https://media2.giphy.com/media/v1.x/abc/giphy.gif",
+				MediaPipeline.gifRendition("https://media2.giphy.com/media/v1.x/abc/giphy.mp4"));
+	}
+
+	@Test
+	void gifRenditionImgurKlipy() {
+		assertEquals("https://i.giphy.com/abc.gif", MediaPipeline.gifRendition("https://i.giphy.com/abc.webp?x=1"));
+		assertEquals("https://i.imgur.com/abc.gif", MediaPipeline.gifRendition("https://i.imgur.com/abc.gifv?x=1"));
+		assertEquals("https://i.imgur.com/abc.gif", MediaPipeline.gifRendition("https://i.imgur.com/abc.mp4"));
+		assertEquals("https://static1.klipy.com/ii/abc/x.gif",
+				MediaPipeline.gifRendition("https://static1.klipy.com/ii/abc/x.MP4?q=1"));
+	}
+
+	@Test
+	void gifRenditionUnknown() {
+		assertNull(MediaPipeline.gifRendition("https://example.com/x.mp4"));
+		assertNull(MediaPipeline.gifRendition(null));
+		assertNull(MediaPipeline.gifRendition("::bad uri"));
+		assertNull(MediaPipeline.gifRendition("https://i.imgur.com/a/b.mp4"));
+		assertNull(MediaPipeline.gifRendition("https://static1.klipy.com/ii/abc/x.png"));
+		assertEquals("https://media.tenor.com/abcdefAAAAC/cat.gif",
+				MediaPipeline.gifRendition("https://media.tenor.com/abcdefAAAPo/cat.mp4"));
+	}
+
+	@Test
+	void gifvKlipyRendition() {
+		Candidate c = new Candidate(Source.EMBED_GIFV, "https://static1.klipy.com/ii/abc/x.mp4", null, 200, 100, -1,
+				null, null, "https://static1.klipy.com/ii/abc/x.webp",
+				"https://images-ext-1.discordapp.net/external/y/x.webp", 200, 100, "image/webp");
+		MediaRef r = run(c).get(0);
+		assertEquals("https://static1.klipy.com/ii/abc/x.gif", r.url());
+		assertEquals("image/gif", r.contentType());
+	}
+
+	@Test
+	void defaultHostsIncludeGifSources() {
+		Policy p = Policy.from(new BridgeConfig());
+		assertTrue(p.allows("https://static1.klipy.com/a.gif"));
+		assertTrue(p.allows("https://media.giphy.com/a.gif"));
+		assertTrue(p.allows("https://i.imgur.com/a.gif"));
+		assertFalse(p.allows("https://klipy.com/a.gif"));
+	}
+
+	@Test
+	void normalizeHostsNullIsDefaults() {
+		assertEquals(BridgeConfig.DEFAULT_MEDIA_HOSTS, Policy.normalizeHosts(null));
+		assertEquals(List.of("a.com"), Policy.normalizeHosts(Arrays.asList(" A.com ", null, " ")));
+		assertThrows(UnsupportedOperationException.class, () -> Policy.normalizeHosts(null).add("x"));
 	}
 }

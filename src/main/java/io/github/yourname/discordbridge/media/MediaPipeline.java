@@ -27,18 +27,22 @@ public final class MediaPipeline {
 			@Nullable String thumbContentType) {}
 
 	public record Policy(List<String> allowedHosts, long maxBytes, int maxDimension, int maxItems, int previewSize) {
-		public static Policy from(BridgeConfig cfg) {
+		/** null → copy of the default hosts; else trimmed, lowercased, blanks/nulls dropped. */
+		public static List<String> normalizeHosts(@Nullable List<String> raw) {
+			if (raw == null) {
+				return List.copyOf(BridgeConfig.DEFAULT_MEDIA_HOSTS);
+			}
 			List<String> hosts = new ArrayList<>();
-			if (cfg.mediaAllowedHosts == null) {
-				hosts.addAll(BridgeConfig.DEFAULT_MEDIA_HOSTS);
-			} else {
-				for (String h : cfg.mediaAllowedHosts) {
-					if (h != null && !h.isBlank()) {
-						hosts.add(h.trim().toLowerCase(Locale.ROOT));
-					}
+			for (String h : raw) {
+				if (h != null && !h.isBlank()) {
+					hosts.add(h.trim().toLowerCase(Locale.ROOT));
 				}
 			}
-			return new Policy(List.copyOf(hosts),
+			return List.copyOf(hosts);
+		}
+
+		public static Policy from(BridgeConfig cfg) {
+			return new Policy(normalizeHosts(cfg.mediaAllowedHosts),
 					cfg.mediaMaxBytes <= 0 ? DEFAULT_MAX_BYTES : cfg.mediaMaxBytes,
 					cfg.mediaMaxDimension <= 0 ? DEFAULT_MAX_DIMENSION : cfg.mediaMaxDimension,
 					Math.clamp(cfg.mediaMaxItems, 0, MAX_ITEMS_HARD),
@@ -124,7 +128,7 @@ public final class MediaPipeline {
 			case GIFV -> {
 				url = null;
 				boolean rendition = false;
-				String[] options = {tenorGifRendition(c.url()), tenorGifRendition(c.thumbUrl()), c.thumbUrl()};
+				String[] options = {gifRendition(c.url()), gifRendition(c.thumbUrl()), c.thumbUrl()};
 				for (int i = 0; i < options.length; i++) {
 					if (policy.allows(options[i])) {
 						url = options[i];
@@ -214,6 +218,69 @@ public final class MediaPipeline {
 			}
 		}
 		return url.substring(0, cut);
+	}
+
+	private static final Pattern GIPHY_MEDIA_HOST = Pattern.compile("media\\d?\\.giphy\\.com");
+	private static final Pattern KLIPY_HOST = Pattern.compile("static\\d*\\.klipy\\.com");
+
+	/** .gif rendition for known GIF hosts, else null. Never throws. */
+	public static @Nullable String gifRendition(@Nullable String url) {
+		if (url == null) {
+			return null;
+		}
+		try {
+			URI uri = new URI(url);
+			if (uri.getHost() == null || uri.getPath() == null) {
+				return null;
+			}
+			String host = uri.getHost().toLowerCase(Locale.ROOT);
+			if (host.equals("media.tenor.com")) {
+				return tenorGifRendition(url);
+			}
+			List<String> segments = new ArrayList<>();
+			for (String s : uri.getPath().split("/")) {
+				if (!s.isEmpty()) {
+					segments.add(s);
+				}
+			}
+			if (GIPHY_MEDIA_HOST.matcher(host).matches()) {
+				if (segments.size() >= 3 && segments.get(0).equals("media")) {
+					return "https://" + host + "/" + String.join("/", segments.subList(0, segments.size() - 1))
+							+ "/giphy.gif";
+				}
+				return null;
+			}
+			if (host.equals("i.giphy.com")) {
+				return singleSegmentGif(host, segments, List.of("mp4", "webp", "gif"));
+			}
+			if (host.equals("i.imgur.com")) {
+				return singleSegmentGif(host, segments, List.of("mp4", "gifv", "webm", "gif"));
+			}
+			if (KLIPY_HOST.matcher(host).matches()) {
+				String path = uri.getPath();
+				String lower = path.toLowerCase(Locale.ROOT);
+				for (String ext : new String[] {".mp4", ".webp", ".gif"}) {
+					if (lower.endsWith(ext)) {
+						return "https://" + host + path.substring(0, path.length() - ext.length()) + ".gif";
+					}
+				}
+			}
+			return null;
+		} catch (URISyntaxException | RuntimeException e) {
+			return null;
+		}
+	}
+
+	private static @Nullable String singleSegmentGif(String host, List<String> segments, List<String> exts) {
+		if (segments.size() != 1) {
+			return null;
+		}
+		String seg = segments.get(0);
+		int dot = seg.lastIndexOf('.');
+		if (dot <= 0 || !exts.contains(seg.substring(dot + 1).toLowerCase(Locale.ROOT))) {
+			return null;
+		}
+		return "https://" + host + "/" + seg.substring(0, dot) + ".gif";
 	}
 
 	public static @Nullable String tenorGifRendition(@Nullable String url) {

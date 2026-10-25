@@ -44,11 +44,13 @@ File: `config/discordbridge-server.json`. The token can instead come from the en
 | `maxInboundLength` | `512` | Max characters of an inbound Discord message. |
 | `maxInboundLines` | `5` | Max lines of an inbound Discord message. |
 | `richMedia` | `true` | Send rich messages to modded clients that completed the handshake. |
-| `mediaAllowedHosts` | Discord CDN, Discord media proxy, Tenor | HTTPS hosts media URLs may use; `*.` prefix matches subdomains. File-only. |
+| `mediaAllowedHosts` | Discord CDN/proxy, Tenor, Giphy, Imgur, Klipy | HTTPS hosts media URLs may use; `*.` prefix matches subdomains. File-only. |
 | `mediaMaxBytes` | `8388608` | Larger attachments are not sent as media. File-only. |
 | `mediaMaxDimension` | `8192` | Max pixels per side. File-only. |
 | `mediaMaxItems` | `4` | Media items per message (hard cap 16). File-only. |
 | `mediaPreviewSize` | `256` | Longest side in pixels of proxy-resized previews. File-only. |
+
+Existing config files keep their saved `mediaAllowedHosts`; delete the key to pick up new defaults.
 
 ## Modded clients
 

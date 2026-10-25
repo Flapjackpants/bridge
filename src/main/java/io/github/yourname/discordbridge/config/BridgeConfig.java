@@ -19,7 +19,8 @@ public final class BridgeConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Pattern HEX = Pattern.compile("#?[0-9a-fA-F]{6}");
 	public static final List<String> DEFAULT_MEDIA_HOSTS = List.of(
-			"cdn.discordapp.com", "media.discordapp.net", "*.discordapp.net", "media.tenor.com");
+			"cdn.discordapp.com", "media.discordapp.net", "*.discordapp.net", "media.tenor.com", "*.tenor.com",
+			"*.giphy.com", "i.imgur.com", "*.klipy.com");
 	private static final List<String> SETTABLE_KEYS = List.of(
 			"discordPrefix", "prefixColor", "nameColor", "messageColor",
 			"relayJoinLeave", "relayDeaths", "relayServerStatus", "useWebhook",
