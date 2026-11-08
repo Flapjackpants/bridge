@@ -2,10 +2,12 @@ package io.github.flapjackpants.discordbridge.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.nio.file.Files;
 import io.github.flapjackpants.discordbridge.media.MediaFetchPlan;
 import io.github.flapjackpants.discordbridge.media.MediaRef;
+import io.github.flapjackpants.discordbridge.text.Emojis;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -208,5 +210,37 @@ class ClientMediaConfigTest {
 		ClientMediaConfig c = ClientMediaConfig.load(f);
 		assertEquals(64, c.maxFrames);
 		assertEquals("{ not json", Files.readString(f));
+	}
+
+	@Test
+	void trustedEmojiSourcesIgnoreEmptyAllowedHosts() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.allowedHosts = new ArrayList<>();
+		MediaRef still = new MediaRef(MediaRef.Kind.STATIC,
+				Emojis.twemojiUrl("😀"), null, 72, 72, 10, "image/png", "1f600.png");
+		assertFalse(c.sources(still).isEmpty());
+		MediaRef animated = new MediaRef(MediaRef.Kind.GIF,
+				Emojis.customUrl("123", true), null, 48, 48, 10, "image/gif", "123.gif");
+		assertFalse(c.sources(animated).isEmpty());
+	}
+
+	@Test
+	void untrustedEmojiHostStaysBlocked() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.allowedHosts = new ArrayList<>();
+		MediaRef ref = new MediaRef(MediaRef.Kind.STATIC,
+				"https://cdn.jsdelivr.net/gh/evil/x.png", null, 72, 72, 10, "image/png", "x.png");
+		assertTrue(c.sources(ref).isEmpty());
+	}
+
+	@Test
+	void emojiPolicyAddsHostsWithoutDuplicates() {
+		ClientMediaConfig c = new ClientMediaConfig();
+		c.allowedHosts = new ArrayList<>(List.of("example.com", "cdn.discordapp.com"));
+		List<String> hosts = c.emojiPolicy().allowedHosts();
+		assertTrue(hosts.contains("example.com"));
+		assertEquals(1, hosts.stream().filter("cdn.discordapp.com"::equals).count());
+		assertEquals(1, hosts.stream().filter("cdn.jsdelivr.net"::equals).count());
+		assertTrue(hosts.indexOf("example.com") < hosts.indexOf("cdn.jsdelivr.net"));
 	}
 }

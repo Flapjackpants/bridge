@@ -117,7 +117,8 @@ public final class ClientMediaManager {
 		DiskCache disk = c.diskCacheBytes() > 0
 				? new DiskCache(FabricLoader.getInstance().getGameDir().resolve("discordbridge-cache"), c.diskCacheBytes())
 				: null;
-		loader = new MediaLoader(new MediaDownloader(c.policy(), Duration.ofSeconds(10))::fetch, disk, c.limits());
+		// shortcut: downloader allows the two emoji hosts for all media; sources() still filters non-emoji refs by allowedHosts. Split per-ref if redirect strictness matters.
+		loader = new MediaLoader(new MediaDownloader(c.emojiPolicy(), Duration.ofSeconds(10))::fetch, disk, c.limits());
 	}
 
 	/**

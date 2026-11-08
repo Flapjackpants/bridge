@@ -8,6 +8,7 @@ import io.github.flapjackpants.discordbridge.media.MediaFetchPlan;
 import io.github.flapjackpants.discordbridge.media.MediaRef;
 import io.github.flapjackpants.discordbridge.text.TextSanitizer;
 import io.github.flapjackpants.discordbridge.media.MediaPipeline;
+import io.github.flapjackpants.discordbridge.text.Emojis;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 public final class ClientMediaConfig {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final List<String> EMOJI_HOSTS = List.of("cdn.discordapp.com", "cdn.jsdelivr.net");
 
 	public MediaMode mode = MediaMode.ANIMATED;    // OFF: no fetching, text fallback only
 	public boolean clickToReveal = false;          // media hidden until the player clicks it
@@ -105,6 +107,18 @@ public final class ClientMediaConfig {
 				Math.clamp(maxDownloadBytes, 64 * 1024, 32 * 1024 * 1024), 8192, 16, Math.clamp(decodeMaxSide, 16, 512));
 	}
 
+	public MediaPipeline.Policy emojiPolicy() {
+		MediaPipeline.Policy base = policy();
+		List<String> hosts = new ArrayList<>(base.allowedHosts());
+		for (String host : EMOJI_HOSTS) {
+			if (!hosts.contains(host)) {
+				hosts.add(host);
+			}
+		}
+		return new MediaPipeline.Policy(List.copyOf(hosts), base.maxBytes(), base.maxDimension(), base.maxItems(),
+				base.previewSize());
+	}
+
 	public MediaDecoder.Limits limits() {
 		return new MediaDecoder.Limits(Math.clamp(decodeMaxSide, 16, 512),
 				mode() == MediaMode.STATIC ? 1 : Math.clamp(maxFrames, 1, 256), 2048, 500, 4_194_304L, 4096);
@@ -149,7 +163,8 @@ public final class ClientMediaConfig {
 			if (m == MediaMode.OFF) {
 				return List.of();
 			}
-			List<MediaFetchPlan.Source> plan = MediaFetchPlan.plan(ref, policy());
+			List<MediaFetchPlan.Source> plan = MediaFetchPlan.plan(ref,
+					Emojis.isTrustedUrl(ref.url()) ? emojiPolicy() : policy());
 			if (m == MediaMode.ANIMATED) {
 				return plan;
 			}
