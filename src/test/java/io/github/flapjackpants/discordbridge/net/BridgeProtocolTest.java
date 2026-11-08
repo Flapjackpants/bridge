@@ -11,7 +11,8 @@ class BridgeProtocolTest {
 		assertEquals(OptionalInt.empty(), BridgeProtocol.negotiate(-1));
 		assertEquals(OptionalInt.empty(), BridgeProtocol.negotiate(0));
 		assertEquals(OptionalInt.empty(), BridgeProtocol.negotiate(1));
-		assertEquals(2, BridgeProtocol.negotiate(2).getAsInt());
-		assertEquals(2, BridgeProtocol.negotiate(99).getAsInt());
+		assertEquals(OptionalInt.empty(), BridgeProtocol.negotiate(2));
+		assertEquals(3, BridgeProtocol.negotiate(3).getAsInt());
+		assertEquals(3, BridgeProtocol.negotiate(99).getAsInt());
 	}
 }

@@ -7,11 +7,20 @@ import org.jspecify.annotations.Nullable;
 public record InboundMessage(String authorDisplayName, String authorUsername, String content,
 		@Nullable String replyToName, List<AttachmentRef> attachments,
 		List<String> stickerNames, String jumpUrl,
-		@Nullable String authorAvatarUrl, List<MediaRef> media) {
+		@Nullable String authorAvatarUrl, List<MediaRef> media,
+		List<Emojis.CustomTag> customEmojis) {
 	public InboundMessage(String authorDisplayName, String authorUsername, String content,
 			@Nullable String replyToName, List<AttachmentRef> attachments,
 			List<String> stickerNames, String jumpUrl) {
 		this(authorDisplayName, authorUsername, content, replyToName, attachments, stickerNames, jumpUrl,
-				null, List.of());
+				null, List.of(), List.of());
+	}
+
+	public InboundMessage(String authorDisplayName, String authorUsername, String content,
+			@Nullable String replyToName, List<AttachmentRef> attachments,
+			List<String> stickerNames, String jumpUrl,
+			@Nullable String authorAvatarUrl, List<MediaRef> media) {
+		this(authorDisplayName, authorUsername, content, replyToName, attachments, stickerNames, jumpUrl,
+				authorAvatarUrl, media, List.of());
 	}
 }

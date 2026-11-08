@@ -20,7 +20,7 @@ public final class ComponentRenderer {
 			Style style = switch (seg.role()) {
 				case PREFIX -> Style.EMPTY.withColor(TextColor.fromRgb(BridgeConfig.parseHexColor(cfg.prefixColor, 0x5865F2)));
 				case NAME -> Style.EMPTY.withColor(TextColor.fromRgb(BridgeConfig.parseHexColor(cfg.nameColor, 0x7289DA)));
-				case BODY -> Style.EMPTY.withColor(TextColor.fromRgb(BridgeConfig.parseHexColor(cfg.messageColor, 0xFFFFFF)));
+				case BODY, EMOJI -> Style.EMPTY.withColor(TextColor.fromRgb(BridgeConfig.parseHexColor(cfg.messageColor, 0xFFFFFF)));
 				case REPLY -> Style.EMPTY.withColor(ChatFormatting.GRAY);
 				case ATTACHMENT -> Style.EMPTY.withColor(ChatFormatting.AQUA).withUnderlined(true);
 			};

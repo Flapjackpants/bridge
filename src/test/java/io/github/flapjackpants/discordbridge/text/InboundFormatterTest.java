@@ -13,6 +13,15 @@ class InboundFormatterTest {
 		return new InboundMessage("Alice", "alice_u", content, reply, att, stickers, "https://discord.com/channels/1/2/3");
 	}
 
+	private static InboundMessage msg(String content, List<Emojis.CustomTag> tags) {
+		return new InboundMessage("Alice", "alice_u", content, null, List.of(), List.of(),
+				"https://discord.com/channels/1/2/3", null, List.of(), tags);
+	}
+
+	private static String joined(List<Segment> segments) {
+		return String.join("", segments.stream().map(Segment::text).toList());
+	}
+
 	@Test
 	void skipsEmpty() {
 		assertTrue(InboundFormatter.format(msg("  ", null, List.of(), List.of()), cfg).isEmpty());
@@ -74,5 +83,43 @@ class InboundFormatterTest {
 		List<Segment> s = InboundFormatter.format(m, cfg);
 		assertEquals("<Al>", s.get(2).text());
 		assertEquals("↪ Bo ", s.get(1).text());
+	}
+
+	@Test
+	void customEmojiSegment() {
+		List<Segment> s = InboundFormatter.format(
+				msg("hi :smile: there", List.of(new Emojis.CustomTag("smile", "123", false))), cfg);
+		assertEquals(List.of(Role.PREFIX, Role.NAME, Role.BODY, Role.EMOJI, Role.BODY),
+				s.stream().map(Segment::role).toList());
+		assertEquals(" hi ", s.get(2).text());
+		assertEquals(":smile:", s.get(3).text());
+		assertEquals(" there", s.get(4).text());
+	}
+
+	@Test
+	void unicodeEmojiSegment() {
+		List<Segment> s = InboundFormatter.format(msg("😀 yo", List.of()), cfg);
+		assertEquals(List.of(Role.PREFIX, Role.NAME, Role.BODY, Role.EMOJI, Role.BODY),
+				s.stream().map(Segment::role).toList());
+		assertEquals(" ", s.get(2).text());
+		assertEquals("😀", s.get(3).text());
+		assertEquals(" yo", s.get(4).text());
+	}
+
+	@Test
+	void plainBodyUnchanged() {
+		List<Segment> s = InboundFormatter.format(msg("plain", List.of()), cfg);
+		assertEquals(3, s.size());
+		assertEquals(Role.BODY, s.get(2).role());
+		assertEquals(" plain", s.get(2).text());
+	}
+
+	@Test
+	void emojiSplitPreservesVanillaText() {
+		String content = "hi :smile: there";
+		String withTags = joined(InboundFormatter.format(
+				msg(content, List.of(new Emojis.CustomTag("smile", "123", false))), cfg));
+		String withoutTags = joined(InboundFormatter.format(msg(content, List.of()), cfg));
+		assertEquals(withoutTags, withTags);
 	}
 }

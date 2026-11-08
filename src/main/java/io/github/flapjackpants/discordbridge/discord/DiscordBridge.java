@@ -6,6 +6,7 @@ import io.github.flapjackpants.discordbridge.net.BridgeNetworking;
 import io.github.flapjackpants.discordbridge.net.RichMessage;
 import io.github.flapjackpants.discordbridge.text.AttachmentRef;
 import io.github.flapjackpants.discordbridge.text.ComponentRenderer;
+import io.github.flapjackpants.discordbridge.text.Emojis;
 import io.github.flapjackpants.discordbridge.text.Emphasis;
 import io.github.flapjackpants.discordbridge.text.InboundFormatter;
 import io.github.flapjackpants.discordbridge.text.InboundMessage;
@@ -213,7 +214,8 @@ public final class DiscordBridge {
 		return new InboundMessage(displayName, author.getName(), message.getContentDisplay(), replyTo,
 				attachments, stickers, message.getJumpUrl(),
 				policy.allows(avatarUrl) ? avatarUrl : null,
-				MediaPipeline.process(mediaCandidates(message), policy));
+				MediaPipeline.process(mediaCandidates(message), policy),
+				Emojis.parseCustomTags(message.getContentRaw()));
 	}
 
 	private static List<MediaPipeline.Candidate> mediaCandidates(Message m) {

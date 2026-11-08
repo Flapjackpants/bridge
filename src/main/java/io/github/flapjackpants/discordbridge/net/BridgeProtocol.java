@@ -4,8 +4,8 @@ import java.util.OptionalInt;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
 public final class BridgeProtocol {
-	public static final int VERSION = 2;
-	public static final int MIN_VERSION = 2;
+	public static final int VERSION = 3;
+	public static final int MIN_VERSION = 3;
 
 	private BridgeProtocol() {}
 

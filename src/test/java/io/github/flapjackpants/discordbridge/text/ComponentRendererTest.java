@@ -2,6 +2,8 @@ package io.github.flapjackpants.discordbridge.text;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.github.flapjackpants.discordbridge.config.BridgeConfig;
+import java.util.List;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -26,5 +28,16 @@ class ComponentRendererTest {
 	void noChildrenUnchanged() {
 		Component c = Component.literal("plain");
 		assertSame(c, ComponentRenderer.withPrefix(c, "[X] ", 0xFF0000));
+	}
+
+	@Test
+	void emojiLooksLikeBody() {
+		Component out = ComponentRenderer.render(List.of(
+				new Segment(" hi ", Role.BODY, null, null),
+				new Segment(":x:", Role.EMOJI, null, null)), new BridgeConfig());
+		assertEquals(" hi :x:", out.getString());
+		assertEquals(2, out.getSiblings().size());
+		assertEquals(out.getSiblings().get(0).getStyle().getColor().getValue(),
+				out.getSiblings().get(1).getStyle().getColor().getValue());
 	}
 }

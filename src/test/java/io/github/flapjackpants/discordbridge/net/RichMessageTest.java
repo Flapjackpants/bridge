@@ -4,7 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.github.flapjackpants.discordbridge.config.BridgeConfig;
 import io.github.flapjackpants.discordbridge.media.MediaRef;
+import io.github.flapjackpants.discordbridge.text.EmojiRef;
+import io.github.flapjackpants.discordbridge.text.Emojis;
+import io.github.flapjackpants.discordbridge.text.InboundFormatter;
 import io.github.flapjackpants.discordbridge.text.InboundMessage;
+import io.github.flapjackpants.discordbridge.text.Role;
+import io.github.flapjackpants.discordbridge.text.Segment;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderException;
@@ -20,7 +25,15 @@ class RichMessageTest {
 				List.of(new MediaRef(MediaRef.Kind.GIFV, "https://media.tenor.com/a/b.gif",
 								"https://media.discordapp.net/x?width=1&height=1", 640, 360, 1234L, "image/gif", "b.gif"),
 						new MediaRef(MediaRef.Kind.VIDEO, "https://cdn.discordapp.com/v.mp4", null, 10, 20, -1,
-								"video/mp4", "v.mp4")));
+								"video/mp4", "v.mp4")),
+				List.of(new EmojiRef(":smile:", Emojis.customUrl("123", false), false),
+						new EmojiRef("😀", Emojis.twemojiUrl("😀"), false)));
+	}
+
+	private static RichMessage withoutEmojis() {
+		RichMessage f = full();
+		return new RichMessage(f.authorDisplayName(), f.authorUsername(), f.avatarUrl(), f.content(),
+				f.replyToName(), f.jumpUrl(), f.stickerNames(), f.media(), List.of());
 	}
 
 	private static void writeHeader(ByteBuf buf) {
@@ -43,7 +56,7 @@ class RichMessageTest {
 		List<MediaRef> linked = f.media().stream().map(r -> new MediaRef(r.kind(), r.url(), r.proxyUrl(), r.width(),
 				r.height(), r.sizeBytes(), r.contentType(), r.fileName(), "https://tenor.com/view/x")).toList();
 		RichMessage m = new RichMessage(f.authorDisplayName(), f.authorUsername(), f.avatarUrl(), f.content(),
-				f.replyToName(), f.jumpUrl(), f.stickerNames(), linked);
+				f.replyToName(), f.jumpUrl(), f.stickerNames(), linked, f.emojis());
 		ByteBuf buf = Unpooled.buffer();
 		RichMessage.STREAM_CODEC.encode(buf, m);
 		RichMessage back = RichMessage.STREAM_CODEC.decode(buf);
@@ -54,18 +67,21 @@ class RichMessageTest {
 
 	@Test
 	void decodesWithoutTrailer() {
+		RichMessage m = withoutEmojis();
 		ByteBuf buf = Unpooled.buffer();
-		RichMessage.STREAM_CODEC.encode(buf, full());
-		buf.writerIndex(buf.writerIndex() - 2);
+		RichMessage.STREAM_CODEC.encode(buf, m);
+		buf.writerIndex(buf.writerIndex() - 3);
 		RichMessage back = RichMessage.STREAM_CODEC.decode(buf);
-		assertEquals(full(), back);
+		assertEquals(m, back);
 		assertNull(back.media().get(0).linkUrl());
+		assertTrue(back.emojis().isEmpty());
+		assertEquals(0, buf.readableBytes());
 	}
 
 	@Test
 	void nullsRoundTrip() {
 		RichMessage m = new RichMessage("a", "b", null, "c", null, "", List.of(),
-				List.of(new MediaRef(MediaRef.Kind.STATIC, null, null, 0, 0, -1, "", "")));
+				List.of(new MediaRef(MediaRef.Kind.STATIC, null, null, 0, 0, -1, "", "")), List.of());
 		ByteBuf buf = Unpooled.buffer();
 		RichMessage.STREAM_CODEC.encode(buf, m);
 		RichMessage back = RichMessage.STREAM_CODEC.decode(buf);
@@ -81,7 +97,7 @@ class RichMessageTest {
 		List<String> stickers = java.util.Collections.nCopies(10, "s");
 		MediaRef ref = new MediaRef(MediaRef.Kind.STATIC, null, null, 0, 0, -1, "", "");
 		RichMessage m = new RichMessage("n".repeat(300), "u", null, "c", null, "", stickers,
-				java.util.Collections.nCopies(20, ref));
+				java.util.Collections.nCopies(20, ref), List.of());
 		ByteBuf buf = Unpooled.buffer();
 		RichMessage.STREAM_CODEC.encode(buf, m);
 		RichMessage back = RichMessage.STREAM_CODEC.decode(buf);
@@ -121,6 +137,16 @@ class RichMessageTest {
 	}
 
 	@Test
+	void rejectsBadEmojiCount() {
+		ByteBuf buf = Unpooled.buffer();
+		writeHeader(buf);
+		VarInt.write(buf, 0);
+		VarInt.write(buf, 0);
+		VarInt.write(buf, 65);
+		assertThrows(DecoderException.class, () -> RichMessage.STREAM_CODEC.decode(buf));
+	}
+
+	@Test
 	void fromSanitizes() {
 		InboundMessage in = new InboundMessage("§aBob", "§bbob", "§chi", "§dAl", List.of(), List.of("§eS"),
 				"https://j", "https://cdn.discordapp.com/av.png", List.of());
@@ -133,5 +159,16 @@ class RichMessageTest {
 		assertEquals("https://cdn.discordapp.com/av.png", r.avatarUrl());
 		assertEquals("", RichMessage.from(new InboundMessage("a", "b", "  ", null, List.of(), List.of(), "j"),
 				new BridgeConfig()).content());
+	}
+
+	@Test
+	void fromCollectsEmojis() {
+		InboundMessage in = new InboundMessage("a", "b", "a :x: 😀", null, List.of(), List.of(), "j",
+				null, List.of(), List.of(new Emojis.CustomTag("x", "7", false)));
+		RichMessage r = RichMessage.from(in, new BridgeConfig());
+		assertEquals(List.of(":x:", "😀"), r.emojis().stream().map(EmojiRef::text).toList());
+		List<String> segmentEmojis = InboundFormatter.format(in, new BridgeConfig()).stream()
+				.filter(s -> s.role() == Role.EMOJI).map(Segment::text).toList();
+		assertEquals(segmentEmojis, r.emojis().stream().map(EmojiRef::text).toList());
 	}
 }

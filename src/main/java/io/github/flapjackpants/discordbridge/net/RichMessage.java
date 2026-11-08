@@ -2,27 +2,36 @@ package io.github.flapjackpants.discordbridge.net;
 
 import io.github.flapjackpants.discordbridge.config.BridgeConfig;
 import io.github.flapjackpants.discordbridge.media.MediaRef;
+import io.github.flapjackpants.discordbridge.text.EmojiRef;
+import io.github.flapjackpants.discordbridge.text.Emojis;
+import io.github.flapjackpants.discordbridge.text.InboundFormatter;
 import io.github.flapjackpants.discordbridge.text.InboundMessage;
 import io.github.flapjackpants.discordbridge.text.TextSanitizer;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DecoderException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import net.minecraft.network.Utf8String;
 import net.minecraft.network.VarInt;
 import net.minecraft.network.codec.StreamCodec;
 import org.jspecify.annotations.Nullable;
 
-/** Wire format is documented in the Spec 2 handoff; v2 appends one linkUrl string per media entry after the media list. */
+/**
+ * Wire format is documented in the Spec 2 handoff; v2 appends one linkUrl string per media entry after the media list.
+ * v3 appends an emoji count, then text/url/animated per emoji.
+ */
 public record RichMessage(String authorDisplayName, String authorUsername, @Nullable String avatarUrl,
 		String content, @Nullable String replyToName, String jumpUrl,
-		List<String> stickerNames, List<MediaRef> media) {
+		List<String> stickerNames, List<MediaRef> media, List<EmojiRef> emojis) {
 	private static final int MAX_NAME = 256;
 	private static final int MAX_URL = 2048;
 	private static final int MAX_CONTENT = 4096;
 	private static final int MAX_TYPE = 128;
 	private static final int MAX_STICKERS = 8;
 	private static final int MAX_MEDIA = 16;
+	private static final int MAX_EMOJIS = Emojis.MAX_EMOJIS;
+	private static final int MAX_EMOJI_TEXT = 128;
 
 	public static final StreamCodec<ByteBuf, RichMessage> STREAM_CODEC = StreamCodec.of(
 			RichMessage::encode, RichMessage::decode);
@@ -39,7 +48,11 @@ public record RichMessage(String authorDisplayName, String authorUsername, @Null
 				m.replyToName() == null ? null : TextSanitizer.stripLegacyFormatting(m.replyToName()),
 				m.jumpUrl(),
 				m.stickerNames().stream().map(TextSanitizer::stripLegacyFormatting).toList(),
-				m.media());
+				m.media(),
+				InboundFormatter.bodyPieces(m, cfg).stream()
+						.map(Emojis.Piece::emoji)
+						.filter(Objects::nonNull)
+						.toList());
 	}
 
 	private static void encode(ByteBuf buf, RichMessage v) {
@@ -69,6 +82,14 @@ public record RichMessage(String authorDisplayName, String authorUsername, @Null
 		}
 		for (int i = 0; i < media; i++) {
 			writeStr(buf, v.media.get(i).linkUrl(), MAX_URL);
+		}
+		int emojis = Math.min(v.emojis.size(), MAX_EMOJIS);
+		VarInt.write(buf, emojis);
+		for (int i = 0; i < emojis; i++) {
+			EmojiRef e = v.emojis.get(i);
+			writeStr(buf, e.text(), MAX_EMOJI_TEXT);
+			writeStr(buf, e.url(), MAX_URL);
+			buf.writeBoolean(e.animated());
 		}
 	}
 
@@ -116,9 +137,27 @@ public record RichMessage(String authorDisplayName, String authorUsername, @Null
 						r.contentType(), r.fileName(), link));
 			}
 		}
+		List<EmojiRef> emojis = List.of();
+		if (buf.isReadable()) {
+			int emojiCount = VarInt.read(buf);
+			if (emojiCount < 0 || emojiCount > MAX_EMOJIS) {
+				throw new DecoderException("Bad emoji count " + emojiCount);
+			}
+			List<EmojiRef> decoded = new ArrayList<>(emojiCount);
+			for (int i = 0; i < emojiCount; i++) {
+				String text = readStr(buf, MAX_EMOJI_TEXT);
+				String url = readStr(buf, MAX_URL);
+				boolean animated = buf.readBoolean();
+				if (text == null || url == null) {
+					continue;
+				}
+				decoded.add(new EmojiRef(text, url, animated));
+			}
+			emojis = List.copyOf(decoded);
+		}
 		return new RichMessage(display == null ? "" : display, username == null ? "" : username, avatar,
 				content == null ? "" : content, replyTo, jump == null ? "" : jump,
-				List.copyOf(stickers), List.copyOf(media));
+				List.copyOf(stickers), List.copyOf(media), emojis);
 	}
 
 	private static void writeStr(ByteBuf buf, @Nullable String s, int max) {
