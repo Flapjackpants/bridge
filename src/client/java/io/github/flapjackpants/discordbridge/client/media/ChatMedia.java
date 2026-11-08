@@ -8,6 +8,9 @@ import io.github.flapjackpants.discordbridge.media.MediaGeometry;
 import io.github.flapjackpants.discordbridge.media.MediaLayout;
 import io.github.flapjackpants.discordbridge.media.MediaLinks;
 import io.github.flapjackpants.discordbridge.media.MediaRef;
+import io.github.flapjackpants.discordbridge.text.EmojiRef;
+import io.github.flapjackpants.discordbridge.text.EmojiText;
+import io.github.flapjackpants.discordbridge.text.Emojis;
 import io.github.flapjackpants.discordbridge.text.MediaLinkText;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +33,7 @@ import org.slf4j.LoggerFactory;
 public final class ChatMedia {
 	private static final Logger LOG = LoggerFactory.getLogger("discordbridge");
 	private static final Map<Component, List<MediaRef>> MEDIA = new MapMaker().weakKeys().makeMap();
+	private static final Map<Component, List<EmojiRef>> EMOJIS = new MapMaker().weakKeys().makeMap();
 	private static final Set<MediaRef> REVEALED = Collections.newSetFromMap(new MapMaker().weakKeys().makeMap());
 	private static final Map<MediaRef, ClientMediaManager.State> OUTCOMES = new MapMaker().weakKeys().makeMap();
 	private static @Nullable MediaRow hovered;
@@ -50,12 +54,17 @@ public final class ChatMedia {
 	/** Hover/hit area in the same local coordinates drawRow uses. */
 	public record Rect(int left, int top, int right, int bottom) {}
 
-	/** Any thread. Ignores null/empty media. Weak identity key: entry dies with the Component. */
-	public static void register(Component fallback, List<MediaRef> media) {
-		if (fallback == null || media == null || media.isEmpty()) {
+	/** Any thread. Ignores null/empty media and emojis. Weak identity key: entry dies with the Component. */
+	public static void register(Component fallback, List<MediaRef> media, List<EmojiRef> emojis) {
+		if (fallback == null) {
 			return;
 		}
-		MEDIA.put(fallback, List.copyOf(media));
+		if (media != null && !media.isEmpty()) {
+			MEDIA.put(fallback, List.copyOf(media));
+		}
+		if (emojis != null && !emojis.isEmpty()) {
+			EMOJIS.put(fallback, List.copyOf(emojis));
+		}
 	}
 
 	/** True iff cfg.mode() != MediaMode.OFF && cfg.showInChatOverlay. When false: no rows, no fetches, text untouched. */
@@ -93,26 +102,42 @@ public final class ChatMedia {
 	public static Component displayText(Component content) {
 		try {
 			List<MediaRef> refs = MEDIA.get(content);
-			if (refs == null || !mediaEnabled(ClientSettings.get())) {
+			List<EmojiRef> emojis = EMOJIS.get(content);
+			if ((refs == null && emojis == null) || !mediaEnabled(ClientSettings.get())) {
 				return content;
 			}
-			Map<String, MediaLinkText.LinkState> states = new LinkedHashMap<>();
-			for (MediaRef ref : refs) {
-				if (ref.linkUrl() == null || ref.kind() == MediaRef.Kind.VIDEO) {
-					continue;
+			Component out = content;
+			if (refs != null) {
+				Map<String, MediaLinkText.LinkState> states = new LinkedHashMap<>();
+				for (MediaRef ref : refs) {
+					if (ref.linkUrl() == null || ref.kind() == MediaRef.Kind.VIDEO) {
+						continue;
+					}
+					ClientMediaManager.State f = failure(ref);
+					MediaLinkText.LinkState s = f == ClientMediaManager.State.TOO_LARGE ? MediaLinkText.LinkState.TOO_LARGE
+							: f == ClientMediaManager.State.FAILED ? MediaLinkText.LinkState.FAILED
+							: MediaLinkText.LinkState.HIDE;
+					states.merge(ref.linkUrl(), s, MediaLinkText::combine);
 				}
-				ClientMediaManager.State f = failure(ref);
-				MediaLinkText.LinkState s = f == ClientMediaManager.State.TOO_LARGE ? MediaLinkText.LinkState.TOO_LARGE
-						: f == ClientMediaManager.State.FAILED ? MediaLinkText.LinkState.FAILED
-						: MediaLinkText.LinkState.HIDE;
-				states.merge(ref.linkUrl(), s, MediaLinkText::combine);
+				out = MediaLinkText.rewrite(content, states,
+						Component.translatable("discordbridge.media.link.failed").withStyle(ChatFormatting.GRAY),
+						Component.translatable("discordbridge.media.link.tooLarge").withStyle(ChatFormatting.GRAY));
 			}
-			return MediaLinkText.rewrite(content, states,
-					Component.translatable("discordbridge.media.link.failed").withStyle(ChatFormatting.GRAY),
-					Component.translatable("discordbridge.media.link.tooLarge").withStyle(ChatFormatting.GRAY));
+			return emojis == null ? out : EmojiText.rewrite(out, emojis, ChatMedia::emojiComponent);
 		} catch (RuntimeException e) {
 			return content;
 		}
+	}
+
+	private static @Nullable Component emojiComponent(EmojiRef e) {
+		if (!Emojis.isTrustedUrl(e.url())) {
+			return null;
+		}
+		MediaRef ref = EmojiGlyphs.ref(e);
+		if (failure(ref) != null) {
+			return null;
+		}
+		return Component.object(new EmojiGlyphs.EmojiObject(e, ref), Component.literal(e.text()));
 	}
 
 	/** Rows for a chat message in top-to-bottom order (all rows of media[0], then media[1], …). Empty if not registered or mode OFF. */

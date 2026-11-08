@@ -66,6 +66,8 @@ Existing server config files also keep their saved `discordPrefix`.
 Clients with the mod get rich messages (author, avatar, media list) after a `discordbridge:hello` v2 handshake.
 Vanilla clients, and everyone when `richMedia` is `false`, see the same chat line as before.
 Media URLs are limited to `mediaAllowedHosts`; the server never fetches media itself. Download size limits are set per client (`maxDownloadBytes`). When media shows inline, its link is hidden; failed or oversized media keep the link with `(epic embed fail)` or `(media too large)`.
+Discord emojis show inline at text size: custom, animated and other-server (Nitro) emojis from `cdn.discordapp.com`, Unicode emojis as Twemoji from `cdn.jsdelivr.net`. These two hosts are used for emoji images even when they are not in `allowedHosts`. With `mode` `OFF` or `showInChatOverlay` `false`, or if an image fails, the emoji shows as text (`:name:`). Vanilla clients always see text.
+Rich messages need the same mod version on server and client (protocol v3). Mismatched versions get plain chat.
 The client prefix and color below apply only when the server has `richMedia` on.
 
 ### Client settings

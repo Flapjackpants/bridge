@@ -31,7 +31,7 @@ public final class DiscordBridgeClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(RichMessagePayload.TYPE, (payload, ctx) -> {
 			ClientMediaConfig cfg = ClientSettings.get();
 			Component shown = ComponentRenderer.withPrefix(payload.fallback(), cfg.prefixText(), cfg.prefixRgb());
-			ChatMedia.register(shown, payload.message().media());
+			ChatMedia.register(shown, payload.message().media(), payload.message().emojis());
 			ctx.client().gui.chatListener().handleSystemMessage(shown, false);
 		});
 
