@@ -1,6 +1,8 @@
 # Discord Bridge
 
 Fabric mod that links a Minecraft server's chat to a Discord channel.
+<img width="1300" height="472" alt="image" src="https://github.com/user-attachments/assets/c91b066a-f651-4d0e-92fd-13b77c0d5fe5" />
+
 
 ## Features
 
